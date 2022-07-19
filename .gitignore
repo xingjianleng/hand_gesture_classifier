@@ -1,0 +1,7 @@
+/data/
+/labelled_data/
+
+# Developer
+.vscode/*
+.idea/*
+.DS_Store
