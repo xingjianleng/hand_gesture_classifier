@@ -38,9 +38,10 @@ wrist_movement_map = {
 }
 
 
-def read_txt(data_file_path):
+def read_txt(data_file_path, with_head=False):
     frames = []
     frame = []
+    data_er_frame = 26 if with_head else 25
     with open(data_file_path, "r") as fr:
         for i, line in enumerate(fr):
             coordinates = re.findall("\(.*?\)", line)
@@ -48,11 +49,11 @@ def read_txt(data_file_path):
                 # if the coordinate exists, get the data
                 frame.extend(
                     [
-                        round(float(coordinate), 8)
+                        float(coordinate)
                         for coordinate in coordinates[0][1:-1].split(",")
                     ]
                 )
-            if (i + 1) % 25 == 0:
+            if (i + 1) % data_er_frame == 0:
                 frames.append(frame)
                 frame = []
     return frames

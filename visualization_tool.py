@@ -1,23 +1,69 @@
 """
 user interface for visualization
 users can upload txt file and press Visualize button to see the prediction
+NOTE: Each frame has 25/26 3D coordinate points (extra one could be the head coordinate)
+
+Rewritten by Xingjian Leng on 20, Jul, 2022
+Credit to:
 """
-from tkinter import *
-from tkinter import filedialog
-import re
-from PIL import Image, ImageTk
-
-# import handClassifier
-import numpy as np
-
-# import fingerClassifier
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg
+import numpy as np
 
 from csv_utils import read_txt
+import re
+from PIL import Image, ImageTk
+from tkinter import Tk, Button, Label, Entry, StringVar, OptionMenu, END
+from tkinter import filedialog
+
+
+# the option for visualization data
+head_options = ("With head", "Without head")
+# indices for inner pivots (should be directly connected to root)
+inner_pivots = (1, 5, 8, 11, 14)
+# indices for purple coloring pivots
+purple_pivots = (1, 14)
+# indices for red coloring pivots
+red_pivots = (2, 5, 8, 11, 15)
+# indices for green coloring pivots
+green_pivots = (3, 6, 9, 12, 16)
+# indices for blue coloring pivots (they are also fingertips indices)
+blue_pivots = (4, 7, 10, 13, 17)
+
+
+def indices_to_colour(index, offset):
+    # get the color from the index and the head_offset
+    if index == offset:
+        return "yellow"
+    elif index in map(lambda x: x + offset, purple_pivots):
+        return "purple"
+    elif index in map(lambda x: x + offset, red_pivots):
+        return "red"
+    elif index in map(lambda x: x + offset, green_pivots):
+        return "green"
+    elif index in map(lambda x: x + offset, blue_pivots):
+        return "blue"
+    else:
+        raise ValueError("Invalid input index or offset!")
+
+
+def extract_points(frame, with_head=False):
+    # helper function to extract coordinate data from each frame
+    x, y, z = [frame[0]], [frame[1]], [frame[2]]
+    if with_head:
+        x.append(frame[3])
+        y.append(frame[4])
+        z.append(frame[5])
+    head_offset = 3 if with_head else 0
+    for i in range(9 + head_offset, 60 + head_offset, 3):
+        x.append(frame[i])
+        y.append(frame[i + 1])
+        z.append(frame[i + 2])
+    return x, y, z
 
 
 def upload_txt():
+    # event handler for upload txt file
     select_file = filedialog.askopenfilename()
     if re.match(r".*\.txt", select_file) is None:
         return
@@ -27,37 +73,18 @@ def upload_txt():
 
 
 def run_input():
+    # event handler to visualize the animation of hand gestures
     if txt_path.get() == "":
         select_label.config(text="Please select the txt file!")
         return
-    points_raw = read_txt(txt_path.get())
+    with_head = var.get() == head_options[0]
+    head_offset = 1 if with_head else 0
+    points_raw = read_txt(txt_path.get(), with_head)
+
     points = np.array(points_raw)
     select_label.config(text="")
-    count = 0
-    for frame in points:
-        """
-        # gesture and movement classification
-        if ((count >= 19) & (count < len(whole))):
-            run = handClassifier.Model(whole_raw[count - 19:count + 1])
-            movement = run.movementClassification()
-            movement_label.config(text='movement:' + movement)
-        elif ((count >= 2) & (count < len(whole))):
-            run = handClassifier.Model(whole_raw[count - 2:count + 1])
-            gesture = run.gestureClassification()
-            gesture_label.config(text='gesture:' + gesture)
-        else:
-            gesture_label.config(text='gesture:')
-            movement_label.config(text='movement:')
-        # finger state
-        run = fingerClassifier.Model(whole[count])
-        finger_pre = run.fingerClassification()
-        thumb_label.config(text='thumb:' + finger_pre[0])
-        index_label.config(text='index:' + finger_pre[1])
-        middle_label.config(text='middle:' + finger_pre[2])
-        ring_label.config(text='ring:' + finger_pre[3])
-        pinky_label.config(text='pinky:' + finger_pre[4])
-        """
 
+    for frame in points:
         plt.cla()
         plt.close("all")
         ax = plt.axes(projection="3d")
@@ -66,33 +93,36 @@ def run_input():
         ax.set_ylim3d(0.8, 1.3)
         ax.set_zlim3d(-0.1, 0.7)
 
-        # plot
-        x = [frame[0]]
-        y = [frame[1]]
-        z = [frame[2]]
-        for i in range(9, 60, 3):
-            x.append(frame[i])
-            y.append(frame[i + 1])
-            z.append(frame[i + 2])
-        # use blue to mark the thumb
-        ax.scatter(x[:5], y[:5], z[:5], c="blue", marker="o", s=30)
-        # use green to mark all other fingers
-        ax.scatter(x[5:], y[5:], z[5:], c="green", marker="o", s=30)
-        # the line indicating the thumb
-        ax.plot(xs=x[0:5], ys=y[0:5], zs=z[0:5], color="orange")
-        # lines indicating all other fingers
-        ax.plot(
-            xs=[x[0]] + x[5:8], ys=[y[0]] + y[5:8], zs=[z[0]] + z[5:8], color="r"
-        )  # index finger
-        ax.plot(
-            xs=[x[0]] + x[8:11], ys=[y[0]] + y[8:11], zs=[z[0]] + z[8:11], color="r"
-        )  # middle finger
-        ax.plot(
-            xs=[x[0]] + x[11:14], ys=[y[0]] + y[11:14], zs=[z[0]] + z[11:14], color="r"
-        )  # ring finger
-        ax.plot(
-            xs=[x[0]] + x[14:], ys=[y[0]] + y[14:], zs=[z[0]] + z[14:], color="r"
-        )  # pinky finger
+        # extract data
+        x, y, z = extract_points(frame, with_head)
+        # length for each list should be the same
+        assert len(x) == len(y) == len(z)
+
+        # if head data is included, show it in the visualization
+        if with_head:
+            ax.scatter(x[0], y[0], z[0], c="black", marker="o", s=60)
+
+        # plot each pivot on axes
+        for i in range(head_offset, len(x)):
+            ax.scatter(
+                x[i], y[i], z[i], c=indices_to_colour(i, head_offset), s=30, alpha=0.6
+            )
+
+        # plot the skeleton of hands on axes (except from the root)
+        for i in range(head_offset + 1, len(x) - 1):
+            if i not in map(lambda p: p + head_offset, blue_pivots):
+                ax.plot([x[i], x[i + 1]], [y[i], y[i + 1]], [z[i], z[i + 1]], c="black")
+
+        root_coord = x[head_offset], y[head_offset], z[head_offset]
+        # plot all the skeleton from the root (5 fingers)
+        for i in map(lambda p: p + head_offset, inner_pivots):
+            ax.plot(
+                [root_coord[0], x[i]],
+                [root_coord[1], y[i]],
+                [root_coord[2], z[i]],
+                c="black",
+            )
+
         # extract the image
         img = plt.gcf()
         canvas = FigureCanvasAgg(img)
@@ -100,30 +130,34 @@ def run_input():
         buf = canvas.buffer_rgba()
         img_arr = np.asarray(buf)
         img_tk = ImageTk.PhotoImage(Image.fromarray(img_arr))
-        #
+
+        # update image to show animations
         movieLabel.place(relx=0.08, rely=0.15)
         movieLabel.config(image=img_tk)
         movieLabel.update()
-        count += 1
 
 
-# the GUI for visualization the hand model
+# the GUI main frame for visualization the hand model
 root = Tk()
 var = StringVar()
-root.title("Visualization")
+root.title("Visualization Tool")
 root.geometry("800x500")
 movieLabel = Label(root, width=512, height=400)
 
-but_upload_txt = Button(root, text="Upload txt file", command=upload_txt)
-but_upload_txt.place(relx=0.05, rely=0.07, relwidth=0.12, relheight=0.04)
+button_upload_txt = Button(root, text="Upload txt file", command=upload_txt)
+button_upload_txt.place(relx=0.05, rely=0.07)
 txt_path = Entry(root)
-txt_path.place(relx=0.18, rely=0.07, relwidth=0.40, relheight=0.04)
+txt_path.place(relx=0.21, rely=0.07)
 
-but_show = Button(root, text="Visualize", command=run_input)
-but_show.place(relx=0.755, rely=0.1, relwidth=0.18, relheight=0.04)
+var.set(head_options[1])
+head_mode = OptionMenu(root, var, *head_options)
+head_mode.place(relx=0.755, rely=0.045)
+
+button_show = Button(root, text="Visualize", command=run_input)
+button_show.place(relx=0.755, rely=0.1)
 
 select_label = Label(root, text="", font="Helvetica 10 bold")
-select_label.place(relx=0.6, rely=0.03)
+select_label.place(relx=0.58, rely=0.03)
 
 # prediction at right side of the window
 hand_state_label = Label(root, text="Hand State", font="Helvetica 12 bold")
