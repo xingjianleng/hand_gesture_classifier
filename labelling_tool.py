@@ -9,9 +9,7 @@ Credit to:
 import imageio
 from PIL import Image, ImageTk
 import re
-from tkinter import Tk, Button, Label, Entry, StringVar, END
-from tkinter import ttk
-from tkinter import filedialog
+from tkinter import Tk, Button, Label, Entry, StringVar, END, ttk, filedialog
 
 from csv_utils import gestures, wrist_movements, write_csv
 

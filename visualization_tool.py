@@ -9,12 +9,11 @@ Credit to:
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 import numpy as np
+from PIL import Image, ImageTk
 
 from csv_utils import read_txt
 import re
-from PIL import Image, ImageTk
-from tkinter import Tk, Button, Label, Entry, StringVar, OptionMenu, END
-from tkinter import filedialog
+from tkinter import Tk, Button, Label, Entry, StringVar, OptionMenu, END, filedialog
 
 
 # the option for visualization data
