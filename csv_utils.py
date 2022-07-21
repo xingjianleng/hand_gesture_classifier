@@ -44,7 +44,7 @@ def read_txt(data_file_path, with_head=False):
     data_er_frame = 26 if with_head else 25
     with open(data_file_path, "r") as fr:
         for i, line in enumerate(fr):
-            coordinates = re.findall("\(.*?\)", line)
+            coordinates = re.findall(r"\(.*?\)", line)
             if coordinates:
                 # if the coordinate exists, get the data
                 frame.extend(

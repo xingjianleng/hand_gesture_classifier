@@ -12,6 +12,7 @@ import numpy as np
 from PIL import Image, ImageTk
 
 from csv_utils import read_txt
+from finger_classifier import finger_classifier_cos
 import re
 from tkinter import Tk, Button, Label, Entry, StringVar, OptionMenu, END, filedialog
 
@@ -84,6 +85,14 @@ def run_input():
     select_label.config(text="")
 
     for frame in points:
+        # classify states for fingers
+        finger_predict = finger_classifier_cos(frame[9 + 3 * head_offset :])
+        thumb_label.config(text=f"Thumb: {finger_predict[0]}")
+        index_label.config(text=f"Index: {finger_predict[1]}")
+        middle_label.config(text=f"Middle: {finger_predict[2]}")
+        ring_label.config(text=f"Ring: {finger_predict[3]}")
+        pinky_label.config(text=f"Pinky: {finger_predict[4]}")
+
         plt.cla()
         plt.close("all")
         ax = plt.axes(projection="3d")
