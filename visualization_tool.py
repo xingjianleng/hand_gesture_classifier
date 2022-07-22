@@ -16,7 +16,6 @@ from finger_classifier import finger_classifier_cos
 import re
 from tkinter import Tk, Button, Label, Entry, StringVar, OptionMenu, END, filedialog
 
-
 # the option for visualization data
 head_options = ("With head", "Without head")
 # indices for inner pivots (should be directly connected to root)

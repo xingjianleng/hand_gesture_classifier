@@ -1,0 +1,27 @@
+digraph pipeline {
+    /* Entities */
+    Data [label="Input data (w/ head coordinates)"]
+
+    PreprocessFinger [label="Extract finger data"]
+    PreprocessHead [label="Extract head data"]
+    PreprocessWrist [label="Extract wrist data"]
+
+    FingerClassfication [label="Classify finger states (e.g. straight) with model"]
+    HandDirectionClassification [label="Classify the direction of hand with model"]
+    WristMovementClassification [label="Classify movement direction of wrist with model"]
+    GesturePrediction [label="Use model to classify the gesture"]
+
+    /* Relationships */
+    Data -> PreprocessFinger
+    Data -> PreprocessWrist
+    Data -> PreprocessHead
+
+    PreprocessFinger -> FingerClassfication
+    PreprocessFinger -> HandDirectionClassification
+    PreprocessHead -> HandDirectionClassification
+    PreprocessWrist -> WristMovementClassification
+
+    FingerClassfication -> GesturePrediction
+    WristMovementClassification -> GesturePrediction
+    HandDirectionClassification -> GesturePrediction
+}
