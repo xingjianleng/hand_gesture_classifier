@@ -1,5 +1,6 @@
 /data/
 /labelled_data/
+/bin/
 **/__pycache__
 
 # Developer

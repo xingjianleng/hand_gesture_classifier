@@ -83,7 +83,21 @@ def run_input():
     points = np.array(points_raw)
     select_label.config(text="")
 
+    fingers = np.empty((0, 3))
     for frame in points:
+        finger_frame = np.vstack(
+            (
+                frame[3 * head_offset : 3 * head_offset + 3].reshape(-1, 3),
+                frame[9 + 3 * head_offset :].reshape(-1, 3),
+            )
+        )
+        fingers = np.vstack((fingers, finger_frame))
+    coord_mean = np.mean(fingers, axis=0)
+    off_x = coord_mean[0]
+    off_y = coord_mean[1]
+    off_z = coord_mean[2]
+
+    for frame_num, frame in enumerate(points):
         # classify states for fingers
         finger_predict = finger_classifier_cos(frame[9 + 3 * head_offset :])
         thumb_label.config(text=f"Thumb: {finger_predict[0]}")
@@ -96,9 +110,9 @@ def run_input():
         plt.close("all")
         ax = plt.axes(projection="3d")
         # set the dimension
-        ax.set_xlim3d(-0.35, 0.15)
-        ax.set_ylim3d(0.8, 1.3)
-        ax.set_zlim3d(-0.1, 0.7)
+        ax.set_xlim3d(-0.25, 0.25)
+        ax.set_ylim3d(-0.25, 0.25)
+        ax.set_zlim3d(-0.25, 0.25)
 
         # extract data
         x, y, z = extract_points(frame, with_head)
@@ -107,26 +121,42 @@ def run_input():
 
         # if head data is included, show it in the visualization
         if with_head:
-            ax.scatter(x[0], y[0], z[0], c="black", marker="o", s=60)
+            ax.scatter(
+                x[0] - off_x, y[0] - off_y, z[0] - off_z, c="black", marker="o", s=60
+            )
 
         # plot each pivot on axes
         for i in range(head_offset, len(x)):
             ax.scatter(
-                x[i], y[i], z[i], c=indices_to_colour(i, head_offset), s=30, alpha=0.6
+                x[i] - off_x,
+                y[i] - off_y,
+                z[i] - off_z,
+                c=indices_to_colour(i, head_offset),
+                s=30,
+                alpha=0.6,
             )
 
         # plot the skeleton of hands on axes (except from the root)
         for i in range(head_offset + 1, len(x) - 1):
             if i not in map(lambda p: p + head_offset, blue_pivots):
-                ax.plot([x[i], x[i + 1]], [y[i], y[i + 1]], [z[i], z[i + 1]], c="black")
+                ax.plot(
+                    [x[i] - off_x, x[i + 1] - off_x],
+                    [y[i] - off_y, y[i + 1] - off_y],
+                    [z[i] - off_z, z[i + 1] - off_z],
+                    c="black",
+                )
 
-        root_coord = x[head_offset], y[head_offset], z[head_offset]
+        root_coord = (
+            x[head_offset] - off_x,
+            y[head_offset] - off_y,
+            z[head_offset] - off_z,
+        )
         # plot all the skeleton from the root (5 fingers)
         for i in map(lambda p: p + head_offset, inner_pivots):
             ax.plot(
-                [root_coord[0], x[i]],
-                [root_coord[1], y[i]],
-                [root_coord[2], z[i]],
+                [root_coord[0], x[i] - off_x],
+                [root_coord[1], y[i] - off_y],
+                [root_coord[2], z[i] - off_z],
                 c="black",
             )
 
