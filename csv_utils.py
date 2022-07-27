@@ -19,6 +19,7 @@ gestures = (
     "expand",
     "zoom in",
     "zoom out",
+    "pinch",
 )
 wrist_movements = (
     "no movement",
