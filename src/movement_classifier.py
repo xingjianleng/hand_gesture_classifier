@@ -27,7 +27,7 @@ class MovementDataset(Dataset):
             extracted_frame = np.hstack(
                 (extracted_frame, coordinates[:, 51:54])
             )  # Pinky 0
-            self.coordinates.append(extracted_frame.astype(np.float32))
+            self.coordinates.append(extracted_frame)
             self.labels.append(movements[1])
         self.transform = transform
         self.target_transform = target_transform
@@ -87,6 +87,7 @@ if __name__ == "__main__":
     transformation = transforms.Compose(
         [
             transforms.ToTensor(),
+            transforms.ConvertImageDtype(torch.float),
             transforms.Normalize(0.5, 0.5),
         ]
     )
