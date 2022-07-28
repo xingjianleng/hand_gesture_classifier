@@ -2,6 +2,7 @@
 The deep learning model to predict wrist movements
 Dataset limited to shape (373, 9). Where 373 is the total number of frames.
 9 is the size of feature vector. (Root, Thumb 0, Pinky 0). Each sub-vector is the x, y, z coordinate.
+Written by: Xingjian Leng on 28, Jul, 2022
 """
 import numpy as np
 import torch
@@ -108,8 +109,8 @@ if __name__ == "__main__":
     lr = 1e-3
     betas = (0.9, 0.999)
     loss_func = nn.CrossEntropyLoss()
-    model = FullyConnectedNet()
-    # model = ConvolutionNet()
+    # model = FullyConnectedNet()
+    model = ConvolutionNet()
     optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=betas)
 
     # training

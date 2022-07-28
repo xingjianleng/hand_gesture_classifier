@@ -40,5 +40,7 @@ if __name__ == "__main__":
     data_path = Path("../data").expanduser().absolute()
     save_path = Path("../labelled_data").expanduser().absolute()
     for file_name in data_path.rglob("*.txt"):
-        movement = extract_label(file_name.stem)
-        write_csv(file_name, save_path, movement)
+        # if the file doesn't exist, write it into csv format
+        if not (save_path / file_name.with_suffix(".csv").name).exists():
+            movement = extract_label(file_name.stem)
+            write_csv(file_name, save_path, movement)
