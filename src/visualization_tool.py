@@ -11,8 +11,8 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 import numpy as np
 from PIL import Image, ImageTk
 
-from csv_utils import read_txt
-from finger_classifier import finger_classifier_cos
+from src.csv_utils import read_txt
+from src.finger_classifier import finger_classifier_cos
 import re
 from tkinter import Tk, Button, Label, Entry, StringVar, OptionMenu, END, filedialog
 

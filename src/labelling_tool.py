@@ -42,7 +42,7 @@ def run_generate():
         return
     finger_label.config(text="")
     movement = [label_gesture.get(), label_movement.get()]
-    write_csv(txt_path.get(), "./labelled_data/", movement)
+    write_csv(txt_path.get(), "../labelled_data/", movement)
     generate_msg.config(text="Generate successful!")
 
 

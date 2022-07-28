@@ -49,13 +49,13 @@ class MovementDataset(Dataset):
 
 
 train_loader = DataLoader(
-    MovementDataset("./train_data"),
+    MovementDataset("../train_data"),
     batch_size=64,
     shuffle=True,
 )
 
 val_loader = DataLoader(
-    MovementDataset("./test_data"),
+    MovementDataset("../test_data"),
     batch_size=64,
 )
 
