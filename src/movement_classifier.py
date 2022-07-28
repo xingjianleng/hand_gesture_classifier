@@ -8,6 +8,7 @@ import torch
 from torch import nn
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
+from torchvision import transforms
 
 from csv_utils import read_csv
 from pathlib import Path
@@ -26,12 +27,8 @@ class MovementDataset(Dataset):
             extracted_frame = np.hstack(
                 (extracted_frame, coordinates[:, 51:54])
             )  # Pinky 0
-            self.coordinates.append(
-                extracted_frame.astype(np.float32).reshape((1, 373, 9))
-            )
+            self.coordinates.append(extracted_frame.astype(np.float32))
             self.labels.append(movements[1])
-        self.coordinates = np.array(self.coordinates)
-        self.labels = np.array(self.labels)
         self.transform = transform
         self.target_transform = target_transform
 
@@ -48,22 +45,10 @@ class MovementDataset(Dataset):
         return coordinate, label
 
 
-train_loader = DataLoader(
-    MovementDataset("../train_data"),
-    batch_size=64,
-    shuffle=True,
-)
-
-val_loader = DataLoader(
-    MovementDataset("../test_data"),
-    batch_size=64,
-)
-
-
 # Fully connected network
-class FullyConnected(nn.Module):
+class FullyConnectedNet(nn.Module):
     def __init__(self):
-        super().__init__()
+        super(FullyConnectedNet, self).__init__()
         self.fc1 = nn.Linear(3357, 4096)
         self.fc2 = nn.Linear(4096, 1024)
         self.fc3 = nn.Linear(1024, 8)
@@ -78,7 +63,7 @@ class FullyConnected(nn.Module):
 # Convolutional neural network
 class ConvolutionNet(nn.Module):
     def __init__(self):
-        super().__init__()
+        super(ConvolutionNet, self).__init__()
         self.conv1 = nn.Conv2d(in_channels=1, out_channels=8, kernel_size=3, padding=1)
         self.conv2 = nn.Conv2d(in_channels=8, out_channels=16, kernel_size=3, padding=1)
         self.conv3 = nn.Conv2d(
@@ -98,63 +83,83 @@ class ConvolutionNet(nn.Module):
         return self.fc3(x)
 
 
-# training details
-epochs = 200
-lr = 1e-3
-betas = (0.9, 0.999)
-loss_func = nn.CrossEntropyLoss()
-# model = FullyConnected()
-model = ConvolutionNet()
-optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=betas)
+if __name__ == "__main__":
+    transformation = transforms.Compose(
+        [
+            transforms.ToTensor(),
+            transforms.Normalize(0.5, 0.5),
+        ]
+    )
 
-# training
-for epoch in range(epochs):  # loop over the dataset multiple times
-    # set the model to training mode
-    model.train()
-    # cumulative data for record the loss and accuracy changes as training proceeds
-    running_loss = 0.0
-    train_correct = 0
-    train_total = 0
+    train_loader = DataLoader(
+        MovementDataset("../train_data", transform=transformation),
+        batch_size=64,
+        shuffle=True,
+    )
 
-    # loop over mini-batches in the dataset
-    for i, (inputs, labels) in enumerate(train_loader, 0):
-        # zero the parameter gradients
-        optimizer.zero_grad(set_to_none=True)
+    val_loader = DataLoader(
+        MovementDataset("../test_data", transform=transformation),
+        batch_size=64,
+    )
 
-        # forward + backward + optimize
-        outputs = model(inputs)
-        loss = loss_func(outputs, labels)
-        loss.backward()
-        optimizer.step()
+    # training details
+    epochs = 150
+    lr = 1e-3
+    betas = (0.9, 0.999)
+    loss_func = nn.CrossEntropyLoss()
+    model = FullyConnectedNet()
+    # model = ConvolutionNet()
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=betas)
 
-        # recording the training accuracy and loss for the mini-batch
-        train_total += labels.size(0)
-        train_correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
-        running_loss += loss.item()
+    # training
+    for epoch in range(epochs):  # loop over the dataset multiple times
+        # set the model to training mode
+        model.train()
+        # cumulative data for record the loss and accuracy changes as training proceeds
+        running_loss = 0.0
+        train_correct = 0
+        train_total = 0
 
-    train_accuracy = train_correct / train_total
+        # loop over mini-batches in the dataset
+        for i, (inputs, labels) in enumerate(train_loader, 0):
+            # zero the parameter gradients
+            optimizer.zero_grad(set_to_none=True)
 
-    # Validation
-    validation_loss = 0.0
-    val_total = 0
-    val_correct = 0
-
-    with torch.no_grad():
-        # set the model to evaluation mode
-        model.eval()
-        for i, (inputs, labels) in enumerate(val_loader, 0):
-            # forward + loss calculation
+            # forward + backward + optimize
             outputs = model(inputs)
             loss = loss_func(outputs, labels)
+            loss.backward()
+            optimizer.step()
 
-            # recording the validation accuracy and loss for the mini-batch
-            val_total += labels.size(0)
-            val_correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
-            validation_loss += loss.item()
+            # recording the training accuracy and loss for the mini-batch
+            train_total += labels.size(0)
+            train_correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
+            running_loss += loss.item()
 
-        # calculate the validation loss and accuracy
-        validation_loss /= len(val_loader)
-        validation_accuracy = val_correct / val_total
-        print(f"Validation accuracy: {validation_accuracy}")
+        train_accuracy = train_correct / train_total
 
-# TODO: Save the model after training
+        # Validation
+        validation_loss = 0.0
+        val_total = 0
+        val_correct = 0
+
+        with torch.no_grad():
+            # set the model to evaluation mode
+            model.eval()
+            for i, (inputs, labels) in enumerate(val_loader, 0):
+                # forward + loss calculation
+                outputs = model(inputs)
+                loss = loss_func(outputs, labels)
+
+                # recording the validation accuracy and loss for the mini-batch
+                val_total += labels.size(0)
+                val_correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
+                validation_loss += loss.item()
+
+            # calculate the validation loss and accuracy
+            validation_loss /= len(val_loader)
+            validation_accuracy = val_correct / val_total
+            print(f"Validation accuracy: {validation_accuracy}")
+
+    # torch.save(model.state_dict(), "../models/conv.pt")
+    # torch.save(model.state_dict(), "../models/fc.pt")
