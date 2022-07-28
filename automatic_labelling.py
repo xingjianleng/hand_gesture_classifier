@@ -1,4 +1,4 @@
-from csv_utils import write_csv, gestures
+from csv_utils import write_csv
 from pathlib import Path
 
 # attributes
@@ -39,7 +39,6 @@ def extract_label(name):
 if __name__ == "__main__":
     data_path = Path("./data").expanduser().absolute()
     save_path = Path("./labelled_data").expanduser().absolute()
-    for file_name in data_path.iterdir():
-        if file_name.suffix == ".txt":
-            movement = extract_label(file_name.stem)
-            write_csv(file_name, save_path, movement)
+    for file_name in data_path.rglob("*.txt"):
+        movement = extract_label(file_name.stem)
+        write_csv(file_name, save_path, movement)

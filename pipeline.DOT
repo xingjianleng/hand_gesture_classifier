@@ -6,7 +6,7 @@ digraph pipeline {
     PreprocessHead [label="Extract head data"]
     PreprocessWrist [label="Extract wrist data"]
 
-    FingerClassfication [label="Classify finger states (e.g. straight) with model"]
+    FingerClassification [label="Classify finger states (e.g. straight) with model"]
     HandDirectionClassification [label="Classify the direction of hand with model"]
     WristMovementClassification [label="Classify movement direction of wrist with model"]
     GesturePrediction [label="Use model to classify the gesture"]
@@ -16,12 +16,12 @@ digraph pipeline {
     Data -> PreprocessWrist
     Data -> PreprocessHead
 
-    PreprocessFinger -> FingerClassfication
+    PreprocessFinger -> FingerClassification
     PreprocessFinger -> HandDirectionClassification
     PreprocessHead -> HandDirectionClassification
     PreprocessWrist -> WristMovementClassification
 
-    FingerClassfication -> GesturePrediction
+    FingerClassification -> GesturePrediction
     WristMovementClassification -> GesturePrediction
     HandDirectionClassification -> GesturePrediction
 }

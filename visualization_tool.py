@@ -186,7 +186,7 @@ button_upload_txt.place(relx=0.05, rely=0.07)
 txt_path = Entry(root)
 txt_path.place(relx=0.21, rely=0.07)
 
-var.set(head_options[1])
+var.set(head_options[0])
 head_mode = OptionMenu(root, var, *head_options)
 head_mode.place(relx=0.755, rely=0.045)
 

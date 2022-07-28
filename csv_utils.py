@@ -1,3 +1,5 @@
+import numpy as np
+
 import csv
 from pathlib import Path
 import re
@@ -80,3 +82,16 @@ def write_csv(data_file, save_path, movement):
         # write movements to the csv file
         csv_writer.writerow((gesture, wrist_movement))
         csv_writer.writerows(data_input)
+
+
+def read_csv(csv_data):
+    # return format: (coordinates, movements), all in numpy format
+    coordinates = []
+    with open(csv_data, "r") as fr:
+        csv_reader = csv.reader(fr)
+        for i, line in enumerate(csv_reader):
+            if i == 0:
+                movements = np.array([int(x) for x in line])
+            else:
+                coordinates.append([float(x) for x in line])
+    return np.array(coordinates), movements
