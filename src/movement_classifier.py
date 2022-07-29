@@ -65,26 +65,25 @@ class FullyConnectedNet(nn.Module):
 class ConvolutionNet(nn.Module):
     def __init__(self):
         super(ConvolutionNet, self).__init__()
-        self.conv1 = nn.Conv2d(in_channels=1, out_channels=8, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(in_channels=8, out_channels=16, kernel_size=3, padding=1)
-        self.conv3 = nn.Conv2d(
-            in_channels=16, out_channels=32, kernel_size=3, padding=1
-        )
-        self.fc1 = nn.Linear(32 * 373 * 9, 4096)
-        self.fc2 = nn.Linear(4096, 1024)
-        self.fc3 = nn.Linear(1024, 8)
+        self.conv1 = nn.Conv2d(in_channels=1, out_channels=4, kernel_size=3, padding=1)
+        self.bn1 = nn.BatchNorm2d(num_features=4)
+        self.conv2 = nn.Conv2d(in_channels=4, out_channels=8, kernel_size=3, padding=1)
+        self.bn2 = nn.BatchNorm2d(num_features=8)
+        self.fc1 = nn.Linear(8 * 373 * 9, 1024)
+        self.fc2 = nn.Linear(1024, 8)
 
     def forward(self, x):
-        x = F.relu(self.conv1(x))
-        x = F.relu(self.conv2(x))
-        x = F.relu(self.conv3(x))
+        x = self.bn1(F.relu(self.conv1(x)))
+        x = self.bn2(F.relu(self.conv2(x)))
         x = torch.flatten(x, 1)
         x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        return self.fc3(x)
+        return self.fc2(x)
 
 
 if __name__ == "__main__":
+    mode = "CNN"
+    assert mode in {"CNN", "FC"}
+
     transformation = transforms.Compose(
         [
             transforms.ToTensor(),
@@ -93,75 +92,106 @@ if __name__ == "__main__":
         ]
     )
 
-    train_loader = DataLoader(
-        MovementDataset("../train_data", transform=transformation),
-        batch_size=64,
-        shuffle=True,
-    )
-
     val_loader = DataLoader(
-        MovementDataset("../test_data", transform=transformation),
+        MovementDataset("../validation_data", transform=transformation),
         batch_size=64,
     )
 
-    # training details
-    epochs = 150
-    lr = 1e-3
-    betas = (0.9, 0.999)
-    loss_func = nn.CrossEntropyLoss()
-    # model = FullyConnectedNet()
-    model = ConvolutionNet()
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=betas)
+    # neural network model
+    model = ConvolutionNet() if mode == "CNN" else FullyConnectedNet()
 
-    # training
-    for epoch in range(epochs):  # loop over the dataset multiple times
-        # set the model to training mode
-        model.train()
-        # cumulative data for record the loss and accuracy changes as training proceeds
-        running_loss = 0.0
-        train_correct = 0
-        train_total = 0
+    if not (
+        Path("../models/conv.pt").exists()
+        and mode == "CNN"
+        or Path("../models/fc.pt").exists()
+        and mode == "FC"
+    ):
+        # when there is no existing model state saved, train a new model
+        train_loader = DataLoader(
+            MovementDataset("../train_data", transform=transformation),
+            batch_size=64,
+            shuffle=True,
+        )
 
-        # loop over mini-batches in the dataset
-        for i, (inputs, labels) in enumerate(train_loader, 0):
-            # zero the parameter gradients
-            optimizer.zero_grad(set_to_none=True)
+        # training details
+        epochs = 60
+        lr = 1e-3
+        betas = (0.9, 0.999)
+        loss_func = nn.CrossEntropyLoss()
+        optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=betas)
 
-            # forward + backward + optimize
-            outputs = model(inputs)
-            loss = loss_func(outputs, labels)
-            loss.backward()
-            optimizer.step()
+        # training
+        for epoch in range(epochs):  # loop over the dataset multiple times
+            # set the model to training mode
+            model.train()
+            # cumulative data for record the loss and accuracy changes as training proceeds
+            running_loss, train_correct, train_total = 0.0, 0, 0
 
-            # recording the training accuracy and loss for the mini-batch
-            train_total += labels.size(0)
-            train_correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
-            running_loss += loss.item()
+            # loop over mini-batches in the dataset
+            for i, (inputs, labels) in enumerate(train_loader, 0):
+                # zero the parameter gradients
+                optimizer.zero_grad(set_to_none=True)
 
-        train_accuracy = train_correct / train_total
+                # forward + backward + optimize
+                outputs = model(inputs)
+                loss = loss_func(outputs, labels)
+                loss.backward()
+                optimizer.step()
 
-        # Validation
-        validation_loss = 0.0
-        val_total = 0
-        val_correct = 0
+                # recording the training accuracy and loss for the mini-batch
+                train_total += labels.size(0)
+                train_correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
+                running_loss += loss.item()
 
+            train_accuracy = train_correct / train_total
+            print(f"\nEpoch: {epoch + 1}\n----------\nTraining loss: {running_loss}")
+            print(f"Training accuracy: {train_accuracy}")
+
+            # Validation
+            validation_loss, val_total, val_correct = 0.0, 0, 0
+
+            with torch.no_grad():
+                # set the model to evaluation mode
+                model.eval()
+                for i, (inputs, labels) in enumerate(val_loader, 0):
+                    # forward + loss calculation
+                    outputs = model(inputs)
+                    loss = loss_func(outputs, labels)
+
+                    # recording the validation accuracy and loss for the mini-batch
+                    val_total += labels.size(0)
+                    val_correct += (
+                        (torch.max(outputs.data, 1)[1] == labels).sum().item()
+                    )
+                    validation_loss += loss.item()
+
+                # calculate the validation loss and accuracy
+                validation_loss /= len(val_loader)
+                validation_accuracy = val_correct / val_total
+                print(f"Validation loss: {validation_loss}")
+                print(f"Validation accuracy: {validation_accuracy}\n----------\n")
+
+        if mode == "CNN":
+            torch.save(model.state_dict(), "../models/conv.pt")
+        else:
+            torch.save(model.state_dict(), "../models/fc.pt")
+    else:
+        # if there are existing models, load it and evaluate it with validation dataset
+        if mode == "CNN":
+            model.load_state_dict(torch.load("../models/conv.pt"))
+        else:
+            model.load_state_dict(torch.load("../models/fc.pt"))
+        model.eval()
+        val_total, val_correct = 0, 0
         with torch.no_grad():
-            # set the model to evaluation mode
-            model.eval()
             for i, (inputs, labels) in enumerate(val_loader, 0):
                 # forward + loss calculation
                 outputs = model(inputs)
-                loss = loss_func(outputs, labels)
-
-                # recording the validation accuracy and loss for the mini-batch
+                # recording the validation accuracy for the mini-batch
                 val_total += labels.size(0)
                 val_correct += (torch.max(outputs.data, 1)[1] == labels).sum().item()
-                validation_loss += loss.item()
-
-            # calculate the validation loss and accuracy
-            validation_loss /= len(val_loader)
+            # calculate the validation accuracy
             validation_accuracy = val_correct / val_total
-            print(f"Validation accuracy: {validation_accuracy}")
-
-    # torch.save(model.state_dict(), "../models/conv.pt")
-    # torch.save(model.state_dict(), "../models/fc.pt")
+            print(
+                f"\n----------\nValidation accuracy: {validation_accuracy}\n----------\n"
+            )
