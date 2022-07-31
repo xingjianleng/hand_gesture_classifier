@@ -18,6 +18,8 @@ from tkinter import Tk, Button, Label, Entry, StringVar, OptionMenu, END, filedi
 
 # the option for visualization data
 head_options = ("With head", "Without head")
+# labels for finger states
+finger_label = ("straight", "half curve", "curve")
 # indices for inner pivots (should be directly connected to root)
 inner_pivots = (1, 5, 8, 11, 14)
 # indices for purple coloring pivots
@@ -100,11 +102,11 @@ def run_input():
     for frame_num, frame in enumerate(points):
         # classify states for fingers
         finger_predict = finger_classifier_cos(frame[9 + 3 * head_offset :])
-        thumb_label.config(text=f"Thumb: {finger_predict[0]}")
-        index_label.config(text=f"Index: {finger_predict[1]}")
-        middle_label.config(text=f"Middle: {finger_predict[2]}")
-        ring_label.config(text=f"Ring: {finger_predict[3]}")
-        pinky_label.config(text=f"Pinky: {finger_predict[4]}")
+        thumb_label.config(text=f"Thumb: {finger_label[finger_predict[0]]}")
+        index_label.config(text=f"Index: {finger_label[finger_predict[1]]}")
+        middle_label.config(text=f"Middle: {finger_label[finger_predict[2]]}")
+        ring_label.config(text=f"Ring: {finger_label[finger_predict[3]]}")
+        pinky_label.config(text=f"Pinky: {finger_label[finger_predict[4]]}")
 
         plt.cla()
         plt.close("all")

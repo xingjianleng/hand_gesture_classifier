@@ -7,7 +7,7 @@ def verify_csv(csv_path):
         with open(file_name, "r") as fr:
             for i, _ in enumerate(fr):
                 pass
-            if i != 374:
+            if i != 359:
                 print(file_name, i)
 
 
@@ -22,5 +22,7 @@ def verify_txt(txt_path):
 
 
 if __name__ == "__main__":
+    check_path = "../labelled_data"
+    verify_csv(check_path)
     check_path = "../data"
     verify_txt(check_path)

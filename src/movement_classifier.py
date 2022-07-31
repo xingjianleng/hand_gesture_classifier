@@ -1,6 +1,6 @@
 """
 The deep learning model to predict wrist movements
-Dataset limited to shape (373, 9). Where 373 is the total number of frames.
+Dataset limited to shape (359, 9). Where 373 is the total number of frames.
 9 is the size of feature vector. (Root, Thumb 0, Pinky 0). Each sub-vector is the x, y, z coordinate.
 Written by: Xingjian Leng on 28, Jul, 2022
 """
@@ -21,6 +21,7 @@ class MovementDataset(Dataset):
         self.labels = []
         for csv_file in Path(file_path).iterdir():
             coordinates, movements = read_csv(csv_file)
+            # TODO: Improvement
             extracted_frame = coordinates[:, 3:6]  # rootPos
             extracted_frame = np.hstack(
                 (extracted_frame, coordinates[:, 12:15])
@@ -28,6 +29,10 @@ class MovementDataset(Dataset):
             extracted_frame = np.hstack(
                 (extracted_frame, coordinates[:, 51:54])
             )  # Pinky 0
+            for index in (5, 8, 11, 14, 18):
+                extracted_frame = np.hstack(
+                    (extracted_frame, coordinates[:, index : index + 3])
+                )
             self.coordinates.append(extracted_frame)
             self.labels.append(movements[1])
         self.transform = transform
@@ -50,7 +55,7 @@ class MovementDataset(Dataset):
 class FullyConnectedNet(nn.Module):
     def __init__(self):
         super(FullyConnectedNet, self).__init__()
-        self.fc1 = nn.Linear(3357, 4096)
+        self.fc1 = nn.Linear(359 * 24, 4096)
         self.fc2 = nn.Linear(4096, 1024)
         self.fc3 = nn.Linear(1024, 8)
 
@@ -62,14 +67,14 @@ class FullyConnectedNet(nn.Module):
 
 
 # Convolutional neural network
-class ConvolutionNet(nn.Module):
+class ConvolutionNetMovement(nn.Module):
     def __init__(self):
-        super(ConvolutionNet, self).__init__()
+        super(ConvolutionNetMovement, self).__init__()
         self.conv1 = nn.Conv2d(in_channels=1, out_channels=4, kernel_size=3, padding=1)
         self.bn1 = nn.BatchNorm2d(num_features=4)
         self.conv2 = nn.Conv2d(in_channels=4, out_channels=8, kernel_size=3, padding=1)
         self.bn2 = nn.BatchNorm2d(num_features=8)
-        self.fc1 = nn.Linear(8 * 373 * 9, 1024)
+        self.fc1 = nn.Linear(8 * 359 * 24, 1024)
         self.fc2 = nn.Linear(1024, 8)
 
     def forward(self, x):
@@ -98,12 +103,12 @@ if __name__ == "__main__":
     )
 
     # neural network model
-    model = ConvolutionNet() if mode == "CNN" else FullyConnectedNet()
+    model = ConvolutionNetMovement() if mode == "CNN" else FullyConnectedNet()
 
     if not (
-        Path("../models/conv.pt").exists()
+        Path("../models/conv_movement.pt").exists()
         and mode == "CNN"
-        or Path("../models/fc.pt").exists()
+        or Path("../models/fc_movement.pt").exists()
         and mode == "FC"
     ):
         # when there is no existing model state saved, train a new model
@@ -119,6 +124,8 @@ if __name__ == "__main__":
         betas = (0.9, 0.999)
         loss_func = nn.CrossEntropyLoss()
         optimizer = torch.optim.Adam(model.parameters(), lr=lr, betas=betas)
+        best_val_acc = 0.0
+        best_dict = None
 
         # training
         for epoch in range(epochs):  # loop over the dataset multiple times
@@ -168,19 +175,22 @@ if __name__ == "__main__":
                 # calculate the validation loss and accuracy
                 validation_loss /= len(val_loader)
                 validation_accuracy = val_correct / val_total
+                if validation_accuracy > best_val_acc:
+                    best_dict = model.state_dict()
+                    best_val_acc = validation_accuracy
                 print(f"Validation loss: {validation_loss}")
                 print(f"Validation accuracy: {validation_accuracy}\n----------\n")
 
         if mode == "CNN":
-            torch.save(model.state_dict(), "../models/conv.pt")
+            torch.save(best_dict, "../models/conv_movement.pt")
         else:
-            torch.save(model.state_dict(), "../models/fc.pt")
+            torch.save(best_dict, "../models/fc_movement.pt")
     else:
         # if there are existing models, load it and evaluate it with validation dataset
         if mode == "CNN":
-            model.load_state_dict(torch.load("../models/conv.pt"))
+            model.load_state_dict(torch.load("../models/conv_movement.pt"))
         else:
-            model.load_state_dict(torch.load("../models/fc.pt"))
+            model.load_state_dict(torch.load("../models/fc_movement.pt"))
         model.eval()
         val_total, val_correct = 0, 0
         with torch.no_grad():

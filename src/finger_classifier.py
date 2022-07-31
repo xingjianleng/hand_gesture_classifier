@@ -6,10 +6,6 @@ Credit to:
 import numpy as np
 
 
-# labels for finger states
-label = ("straight", "half curve", "curve")
-
-
 def cos_similarity(a, b, thumb):
     """
     calculate finger state through cosine similarity
@@ -20,18 +16,18 @@ def cos_similarity(a, b, thumb):
     cos_angle = np.dot(a, b) / (a_norm * b_norm)
     if thumb:
         if cos_angle >= 0.8:
-            return label[0]
+            return 0
         elif cos_angle >= 0.6:
-            return label[1]
+            return 1
         else:
-            return label[2]
+            return 2
     else:
         if cos_angle >= 0.7:
-            return label[0]
+            return 0
         elif cos_angle >= 0:
-            return label[1]
+            return 1
         else:
-            return label[2]
+            return 2
 
 
 def finger_classifier_cos(finger_coords):
@@ -52,4 +48,11 @@ def finger_classifier_cos(finger_coords):
             - finger_coords[tip_offset : tip_offset + 3]
         )
         rtn.append(cos_similarity(finger_seg1, finger_seg2, False))
+    return rtn
+
+
+def finger_states_encoding(coordinates, with_head=True):
+    rtn = np.zeros((359, 5))
+    for i, frame in enumerate(coordinates):
+        rtn[i] = finger_classifier_cos(frame[9 + 3 * with_head :])
     return rtn

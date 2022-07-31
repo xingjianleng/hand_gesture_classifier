@@ -41,7 +41,7 @@ wrist_movement_map = {
 }
 
 
-def read_txt(data_file_path, with_head=False):
+def read_txt(data_file_path, with_head=True):
     frames = []
     frame = []
     data_er_frame = 26 if with_head else 25
@@ -62,7 +62,7 @@ def read_txt(data_file_path, with_head=False):
     return frames
 
 
-def write_csv(data_file, save_path, movement):
+def write_csv(data_file, save_path, movement, with_head=True):
     # map the string gestures and movements to its integer representation
     gesture = gesture_map[movement[0]]
     wrist_movement = wrist_movement_map[movement[1]]
@@ -73,7 +73,7 @@ def write_csv(data_file, save_path, movement):
     csv_save_path = Path(f"{str(save_path_obj)}/{data_file_path.stem}.csv")
 
     # the txt input
-    data_input = read_txt(data_file_path)
+    data_input = read_txt(data_file_path, with_head)
 
     # write the data with the movement labels
     with open(csv_save_path, "w") as fw:
