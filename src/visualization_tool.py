@@ -13,6 +13,7 @@ from PIL import Image, ImageTk
 
 from src.csv_utils import read_txt
 from src.finger_classifier import finger_classifier_cos
+from src.palm_classifier import get_palm_vector, get_palm_center
 import re
 from tkinter import Tk, Button, Label, Entry, StringVar, OptionMenu, END, filedialog
 
@@ -81,6 +82,7 @@ def run_input():
     with_head = var.get() == head_options[0]
     head_offset = 1 if with_head else 0
     points_raw = read_txt(txt_path.get(), with_head)
+    hand_type = 1  # TODO: Need to add more field for choosing hand type
 
     points = np.array(points_raw)
     select_label.config(text="")
@@ -161,6 +163,25 @@ def run_input():
                 [root_coord[2], z[i] - off_z],
                 c="black",
             )
+
+        # plot the palm normal vector
+        palm_vector = get_palm_vector(frame, hand_type)
+        palm_center = get_palm_center(frame)
+        # ax.plot(
+        #     [palm_center[0] - off_x, palm_vector[0] - off_x],
+        #     [palm_center[1] - off_y, palm_vector[1] - off_y],
+        #     [palm_center[2] - off_z, palm_vector[2] - off_z],
+        #     c="red",
+        # )
+        ax.quiver(
+            palm_center[0] - off_x,
+            palm_center[1] - off_y,
+            palm_center[2] - off_z,
+            palm_vector[0],
+            palm_vector[1],
+            palm_vector[2],
+            color="red",
+        )
 
         # extract the image
         img = plt.gcf()

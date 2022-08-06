@@ -1,3 +1,7 @@
+"""
+The automatic labelling tool which will parse the name of data files.
+The data files are named in the convention of "name_gesture_wrist.txt"
+"""
 from csv_utils import write_csv
 from pathlib import Path
 
@@ -31,9 +35,9 @@ wrist_movement_map = {
 }
 
 
-def extract_label(name):
-    movements = name.split("_")[1:3]
-    return gesture_map[movements[0]], wrist_movement_map[movements[1]]
+def extract_label(labels):
+    attributes = labels.split("_")[:3]
+    return gesture_map[attributes[1]], wrist_movement_map[attributes[2]], attributes[0]
 
 
 if __name__ == "__main__":

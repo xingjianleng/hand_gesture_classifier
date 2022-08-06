@@ -1,3 +1,9 @@
+"""
+The utility file for read/write csv/txt files.
+The encoding for output csv file is:
+Line 1: gesture, wrist movements, hand_type,
+Line 2 - Line n: each line is a frame for 25/26 coordinates of data points
+"""
 import numpy as np
 
 import csv
@@ -6,6 +12,7 @@ import re
 
 # attributes
 fingers_name = ("Thumb", "Index finger", "Middle finger", "Ring finger", "Pinky")
+hand_types = ("left", "right")
 gestures = (
     "one",
     "two",
@@ -39,6 +46,7 @@ gesture_map = {gesture: i for i, gesture in enumerate(gestures)}
 wrist_movement_map = {
     wrist_movement: i for i, wrist_movement in enumerate(wrist_movements)
 }
+hand_map = {hand_type: i for i, hand_type in enumerate(hand_types)}
 
 
 def read_txt(data_file_path, with_head=True):
@@ -62,10 +70,11 @@ def read_txt(data_file_path, with_head=True):
     return frames
 
 
-def write_csv(data_file, save_path, movement, with_head=True):
-    # map the string gestures and movements to its integer representation
-    gesture = gesture_map[movement[0]]
-    wrist_movement = wrist_movement_map[movement[1]]
+def write_csv(data_file, save_path, attributes, with_head=True):
+    # map the string gestures, wrist movements and hand types to its integer representation
+    gesture = gesture_map[attributes[0]]
+    wrist_movement = wrist_movement_map[attributes[1]]
+    hand_type = hand_map[attributes[2]]
 
     # extract the path
     data_file_path = Path(data_file).expanduser().absolute()
@@ -80,7 +89,7 @@ def write_csv(data_file, save_path, movement, with_head=True):
         fw.truncate(0)
         csv_writer = csv.writer(fw)
         # write movements to the csv file
-        csv_writer.writerow((gesture, wrist_movement))
+        csv_writer.writerow((gesture, wrist_movement, hand_type))
         csv_writer.writerows(data_input)
 
 
