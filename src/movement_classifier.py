@@ -11,6 +11,7 @@ import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 
+from copy import deepcopy
 from csv_utils import read_csv
 from pathlib import Path
 
@@ -176,7 +177,7 @@ if __name__ == "__main__":
                 validation_loss /= len(val_loader)
                 validation_accuracy = val_correct / val_total
                 if validation_accuracy > best_val_acc:
-                    best_dict = model.state_dict()
+                    best_dict = deepcopy(model.state_dict())
                     best_val_acc = validation_accuracy
                 print(f"Validation loss: {validation_loss}")
                 print(f"Validation accuracy: {validation_accuracy}\n----------\n")

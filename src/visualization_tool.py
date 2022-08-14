@@ -11,9 +11,9 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 import numpy as np
 from PIL import Image, ImageTk
 
-from src.csv_utils import read_txt
-from src.finger_classifier import finger_classifier_cos
-from src.palm_classifier import get_palm_vector, get_palm_center
+from csv_utils import read_txt, hand_types
+from finger_classifier import finger_classifier_cos
+from palm_classifier import get_palm_vector, get_palm_center
 import re
 from tkinter import Tk, Button, Label, Entry, StringVar, OptionMenu, END, filedialog
 
@@ -79,10 +79,11 @@ def run_input():
     if txt_path.get() == "":
         select_label.config(text="Please select the txt file!")
         return
-    with_head = var.get() == head_options[0]
+    with_head = varHead.get() == head_options[0]
     head_offset = 1 if with_head else 0
     points_raw = read_txt(txt_path.get(), with_head)
-    hand_type = 1  # TODO: Need to add more field for choosing hand type
+    left_hand = varHand.get() == hand_types[0]
+    hand = 0 if left_hand else 1
 
     points = np.array(points_raw)
     select_label.config(text="")
@@ -165,14 +166,8 @@ def run_input():
             )
 
         # plot the palm normal vector
-        palm_vector = get_palm_vector(frame, hand_type)
+        palm_vector = get_palm_vector(frame, hand)
         palm_center = get_palm_center(frame)
-        # ax.plot(
-        #     [palm_center[0] - off_x, palm_vector[0] - off_x],
-        #     [palm_center[1] - off_y, palm_vector[1] - off_y],
-        #     [palm_center[2] - off_z, palm_vector[2] - off_z],
-        #     c="red",
-        # )
         ax.quiver(
             palm_center[0] - off_x,
             palm_center[1] - off_y,
@@ -199,7 +194,8 @@ def run_input():
 
 # the GUI main frame for visualization the hand model
 root = Tk()
-var = StringVar()
+varHead = StringVar()
+varHand = StringVar()
 root.title("Visualization Tool")
 root.geometry("800x500")
 movieLabel = Label(root, width=512, height=400)
@@ -209,12 +205,16 @@ button_upload_txt.place(relx=0.05, rely=0.07)
 txt_path = Entry(root)
 txt_path.place(relx=0.21, rely=0.07)
 
-var.set(head_options[0])
-head_mode = OptionMenu(root, var, *head_options)
+varHead.set(head_options[0])
+head_mode = OptionMenu(root, varHead, *head_options)
 head_mode.place(relx=0.755, rely=0.045)
 
+varHand.set(hand_types[0])
+hand_type = OptionMenu(root, varHand, *hand_types)
+hand_type.place(relx=0.78, rely=0.1)
+
 button_show = Button(root, text="Visualize", command=run_input)
-button_show.place(relx=0.755, rely=0.1)
+button_show.place(relx=0.755, rely=0.155)
 
 select_label = Label(root, text="", font="Helvetica 10 bold")
 select_label.place(relx=0.58, rely=0.03)

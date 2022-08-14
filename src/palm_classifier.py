@@ -5,6 +5,24 @@ of cross product vectors to differentiate left and right hand
 """
 import numpy as np
 
+from enum import Enum
+
+
+class Direction(Enum):
+    FORWARD = 1
+    PARTIAL_FORWARD = 2
+    BACKWARD = 3
+    PARTIAL_BACKWARD = 4
+    LEFT = 5
+    PARTIAL_LEFT = 6
+    RIGHT = 7
+    PARTIAL_RIGHT = 8
+    UP = 9
+    PARTIAL_UP = 10
+    DOWN = 11
+    PARTIAL_DOWN = 12
+    OTHERS = 13
+
 
 def get_palm_vector(frame, hand_type):
     # 0 -> left hand, 1 -> right hand
@@ -38,3 +56,37 @@ def get_ring_vec(frame):
     ring_1 = frame[42:45]
     root = frame[3:6]
     return ring_1 - root
+
+
+def forward_backward_classifier(palm_vector, head_vector):
+    # cosine similarity between two vectors
+    # 1 -> forward, 0 -> backward, -1 -> other cases
+    cosine_sim = np.dot(palm_vector, head_vector) / (
+        np.linalg.norm(palm_vector) * np.linalg.norm(head_vector)
+    )
+    if cosine_sim > np.sqrt(3) / 2:
+        # within 30 degree range, forward case
+        return Direction.FORWARD
+    elif cosine_sim < -np.sqrt(3) / 2:
+        # backward case
+        return Direction.BACKWARD
+    elif cosine_sim > np.sqrt(3) / 2:
+        # within 60 degree range, partial forward
+        return Direction.PARTIAL_FORWARD
+    elif cosine_sim < -np.sqrt(3) / 2:
+        # within 150 degree range, partial backward
+        return Direction.PARTIAL_BACKWARD
+    else:
+        return Direction.OTHERS
+
+
+def left_right_classifier(palm_vector, head_vector, knuckle_vector, hand_type):
+    # pivot vector is the
+    # determine whether palm vector falls in the conical space formed by head_vector
+    # cosine_sim = np.dot(palm_vector, head_vector) / (np.linalg.norm(palm_vector) * np.linalg.norm(head_vector))
+    # if cosine_sim <
+    pass
+
+
+def up_down_classifier(palm_vector, head_vector, thumb_vector, hand_type):
+    pass
