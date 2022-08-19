@@ -13,15 +13,7 @@ class Direction(Enum):
     PARTIAL_FORWARD = 2
     BACKWARD = 3
     PARTIAL_BACKWARD = 4
-    LEFT = 5
-    PARTIAL_LEFT = 6
-    RIGHT = 7
-    PARTIAL_RIGHT = 8
-    UP = 9
-    PARTIAL_UP = 10
-    DOWN = 11
-    PARTIAL_DOWN = 12
-    OTHERS = 13
+    OTHERS = 5
 
 
 def get_palm_vector(frame, hand_type):
@@ -78,15 +70,3 @@ def forward_backward_classifier(palm_vector, head_vector):
         return Direction.PARTIAL_BACKWARD
     else:
         return Direction.OTHERS
-
-
-def left_right_classifier(palm_vector, head_vector, knuckle_vector, hand_type):
-    # pivot vector is the
-    # determine whether palm vector falls in the conical space formed by head_vector
-    # cosine_sim = np.dot(palm_vector, head_vector) / (np.linalg.norm(palm_vector) * np.linalg.norm(head_vector))
-    # if cosine_sim <
-    pass
-
-
-def up_down_classifier(palm_vector, head_vector, thumb_vector, hand_type):
-    pass

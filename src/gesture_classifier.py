@@ -1,6 +1,6 @@
 """
 For each hand, we can use a 359x5 matrix to encode the finger state.
-373 is the total number of frames, 5 (0 - 4) represents each finger
+359 is the total number of frames, 5 (0 - 4) represents each finger
 For each element, 0 means straight; 1 means half-curve; 2 means curve.
 """
 import torch
@@ -10,7 +10,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 
 from copy import deepcopy
-from csv_utils import read_csv
+from utils import read_csv
 from finger_classifier import finger_states_encoding
 from pathlib import Path
 

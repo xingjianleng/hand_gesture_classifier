@@ -2,7 +2,7 @@
 The automatic labelling tool which will parse the name of data files.
 The data files are named in the convention of "name_gesture_wrist.txt"
 """
-from csv_utils import write_csv
+from utils import write_csv
 from pathlib import Path
 
 # attributes

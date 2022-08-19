@@ -11,7 +11,7 @@ from PIL import Image, ImageTk
 import re
 from tkinter import Tk, Button, Label, Entry, StringVar, END, ttk, filedialog
 
-from csv_utils import gestures, wrist_movements, write_csv
+from utils import gestures, wrist_movements, write_csv
 
 
 def upload_txt():

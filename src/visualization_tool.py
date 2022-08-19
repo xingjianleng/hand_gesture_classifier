@@ -11,7 +11,7 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 import numpy as np
 from PIL import Image, ImageTk
 
-from csv_utils import read_txt, hand_types
+from utils import read_txt, hand_types
 from finger_classifier import finger_classifier_cos
 from palm_classifier import get_palm_vector, get_palm_center
 import re
