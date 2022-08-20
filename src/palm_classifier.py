@@ -21,10 +21,11 @@ def get_palm_vector(frame, hand_type, with_head: bool = True):
     assert hand_type in {0, 1}
     index_vec = get_index_vec(frame, with_head)
     ring_vec = get_ring_vec(frame, with_head)
-    assert hand_type in {0, 1}
     if hand_type == 0:
+        # left hand
         norm_vec = np.cross(ring_vec, index_vec)
     else:
+        # right hand
         norm_vec = np.cross(index_vec, ring_vec)
     # 0.1 is the normalized length for the vector
     return 0.1 * norm_vec / np.linalg.norm(norm_vec)

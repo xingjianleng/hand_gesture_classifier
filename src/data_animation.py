@@ -220,10 +220,3 @@ def generate_animation(points: np.ndarray, with_head: bool, hand: int):
     )
 
     return ani
-
-
-from utils import read_txt
-
-data = np.array(read_txt("../data/right_four/right_four_no_3.txt", True))
-ani = generate_animation(data, True, 1)
-ani.save("1.mp4")

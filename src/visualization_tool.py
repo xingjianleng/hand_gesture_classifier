@@ -84,7 +84,6 @@ def run_input():
     points_raw = read_txt(txt_path.get(), with_head)
     left_hand = varHand.get() == hand_types[0]
     hand = 0 if left_hand else 1
-
     points = np.array(points_raw)
     select_label.config(text="")
 
