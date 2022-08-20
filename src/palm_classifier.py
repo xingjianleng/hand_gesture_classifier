@@ -16,10 +16,11 @@ class Direction(Enum):
     OTHERS = 5
 
 
-def get_palm_vector(frame, hand_type):
+def get_palm_vector(frame, hand_type, with_head: bool = True):
     # 0 -> left hand, 1 -> right hand
-    index_vec = get_index_vec(frame)
-    ring_vec = get_ring_vec(frame)
+    assert hand_type in {0, 1}
+    index_vec = get_index_vec(frame, with_head)
+    ring_vec = get_ring_vec(frame, with_head)
     assert hand_type in {0, 1}
     if hand_type == 0:
         norm_vec = np.cross(ring_vec, index_vec)
@@ -29,24 +30,27 @@ def get_palm_vector(frame, hand_type):
     return 0.1 * norm_vec / np.linalg.norm(norm_vec)
 
 
-def get_palm_center(frame):
+def get_palm_center(frame, with_head: bool = True):
     # palm center is half of the length from root to the middle_finger_1
-    root = frame[3:6]
-    middle_1 = frame[33:36]
+    offset = int(with_head) * 3
+    root = frame[0 + offset : 3 + offset]
+    middle_1 = frame[30 + offset : 33 + offset]
     return (middle_1 + root) / 2
 
 
-def get_index_vec(frame):
+def get_index_vec(frame, with_head: bool):
     # index vector is the vector point from root to index_finger_1
-    index_1 = frame[24:27]
-    root = frame[3:6]
+    offset = int(with_head) * 3
+    index_1 = frame[21 + offset : 24 + offset]
+    root = frame[0 + offset : 3 + offset]
     return index_1 - root
 
 
-def get_ring_vec(frame):
+def get_ring_vec(frame, with_head: bool):
     # ring vector is the vector point from root to ring_finger_1
-    ring_1 = frame[42:45]
-    root = frame[3:6]
+    offset = int(with_head) * 3
+    ring_1 = frame[39 + offset : 42 + offset]
+    root = frame[0 + offset : 3 + offset]
     return ring_1 - root
 
 
