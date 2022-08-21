@@ -3,6 +3,8 @@ calculate finger state (straight, half-curved, fully curved)
 Rewritten by Xingjian Leng on 21, Jul, 2022
 Credit to:
 """
+from typing import List
+
 import numpy as np
 
 
@@ -51,8 +53,8 @@ def finger_classifier_cos(finger_coords):
     return rtn
 
 
-def finger_states_encoding(coordinates, with_head=True):
-    rtn = np.zeros((359, 5))
+def finger_states_encoding(coordinates, with_head=True) -> List[List[int]]:
+    rtn = np.zeros((359, 5), dtype=int)
     for i, frame in enumerate(coordinates):
         rtn[i] = finger_classifier_cos(frame[9 + 3 * with_head :])
     return rtn

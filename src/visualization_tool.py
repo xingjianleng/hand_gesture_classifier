@@ -6,14 +6,15 @@ NOTE: Each frame has 25/26 3D coordinate points (extra one could be the head coo
 Rewritten by Xingjian Leng on 20, Jul, 2022
 Credit to:
 """
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_agg import FigureCanvasAgg
+import imageio
 import numpy as np
 from PIL import Image, ImageTk
 
+from custom_thread import CustomThread
+from data_animation import generate_animation
 from utils import read_txt, hand_types
-from finger_classifier import finger_classifier_cos
-from palm_classifier import get_palm_vector, get_palm_center
+from finger_classifier import finger_states_encoding
+from pathlib import Path
 import re
 from tkinter import Tk, Button, Label, Entry, StringVar, OptionMenu, END, filedialog
 
@@ -31,6 +32,16 @@ red_pivots = (2, 5, 8, 11, 15)
 green_pivots = (3, 6, 9, 12, 16)
 # indices for blue coloring pivots (they are also fingertips indices)
 blue_pivots = (4, 7, 10, 13, 17)
+
+
+def finger_state_labeller(int_label: int) -> str:
+    assert int_label in {0, 1, 2}
+    if int_label == 0:
+        return "straight"
+    elif int_label == 1:
+        return "half-curved"
+    else:
+        return "curved"
 
 
 def indices_to_colour(index, offset):
@@ -80,115 +91,51 @@ def run_input():
         select_label.config(text="Please select the txt file!")
         return
     with_head = varHead.get() == head_options[0]
-    head_offset = 1 if with_head else 0
     points_raw = read_txt(txt_path.get(), with_head)
     left_hand = varHand.get() == hand_types[0]
     hand = 0 if left_hand else 1
     points = np.array(points_raw)
     select_label.config(text="")
 
-    fingers = np.empty((0, 3))
-    for frame in points:
-        finger_frame = np.vstack(
-            (
-                frame[3 * head_offset : 3 * head_offset + 3].reshape(-1, 3),
-                frame[9 + 3 * head_offset :].reshape(-1, 3),
-            )
-        )
-        fingers = np.vstack((fingers, finger_frame))
-    coord_mean = np.mean(fingers, axis=0)
-    off_x = coord_mean[0]
-    off_y = coord_mean[1]
-    off_z = coord_mean[2]
+    # start a new thread for calculating labels and making predictions
+    finger_state_thread = CustomThread(finger_states_encoding, points)
+    finger_state_thread.start()
 
-    for frame_num, frame in enumerate(points):
-        # classify states for fingers
-        finger_predict = finger_classifier_cos(frame[9 + 3 * head_offset :])
-        thumb_label.config(text=f"Thumb: {finger_label[finger_predict[0]]}")
-        index_label.config(text=f"Index: {finger_label[finger_predict[1]]}")
-        middle_label.config(text=f"Middle: {finger_label[finger_predict[2]]}")
-        ring_label.config(text=f"Ring: {finger_label[finger_predict[3]]}")
-        pinky_label.config(text=f"Pinky: {finger_label[finger_predict[4]]}")
+    # put animation on the main thread
+    animation = generate_animation(points, with_head, hand)
+    temp_video_path = Path(
+        "temp_video.mp4"
+    )  # TODO: put temp video in .temp folder with video name
+    animation.save(temp_video_path)
+    video_reader = imageio.get_reader(temp_video_path)
 
-        plt.cla()
-        plt.close("all")
-        ax = plt.axes(projection="3d")
-        # set the dimension
-        ax.set_xlim3d(-0.25, 0.25)
-        ax.set_ylim3d(-0.25, 0.25)
-        ax.set_zlim3d(-0.25, 0.25)
+    # TODO: add a note that the program is analysing
 
-        # extract data
-        x, y, z = extract_points(frame, with_head)
-        # length for each list should be the same
-        assert len(x) == len(y) == len(z)
-
-        # if head data is included, show it in the visualization
-        if with_head:
-            ax.scatter(
-                x[0] - off_x, y[0] - off_y, z[0] - off_z, c="black", marker="o", s=60
-            )
-
-        # plot each pivot on axes
-        for i in range(head_offset, len(x)):
-            ax.scatter(
-                x[i] - off_x,
-                y[i] - off_y,
-                z[i] - off_z,
-                c=indices_to_colour(i, head_offset),
-                s=30,
-                alpha=0.6,
-            )
-
-        # plot the skeleton of hands on axes (except from the root)
-        for i in range(head_offset + 1, len(x) - 1):
-            if i not in map(lambda p: p + head_offset, blue_pivots):
-                ax.plot(
-                    [x[i] - off_x, x[i + 1] - off_x],
-                    [y[i] - off_y, y[i + 1] - off_y],
-                    [z[i] - off_z, z[i + 1] - off_z],
-                    c="black",
-                )
-
-        root_coord = (
-            x[head_offset] - off_x,
-            y[head_offset] - off_y,
-            z[head_offset] - off_z,
-        )
-        # plot all the skeleton from the root (5 fingers)
-        for i in map(lambda p: p + head_offset, inner_pivots):
-            ax.plot(
-                [root_coord[0], x[i] - off_x],
-                [root_coord[1], y[i] - off_y],
-                [root_coord[2], z[i] - off_z],
-                c="black",
-            )
-
-        # plot the palm normal vector
-        palm_vector = get_palm_vector(frame, hand)
-        palm_center = get_palm_center(frame)
-        ax.quiver(
-            palm_center[0] - off_x,
-            palm_center[1] - off_y,
-            palm_center[2] - off_z,
-            palm_vector[0],
-            palm_vector[1],
-            palm_vector[2],
-            color="red",
-        )
-
-        # extract the image
-        img = plt.gcf()
-        canvas = FigureCanvasAgg(img)
-        canvas.draw()
-        buf = canvas.buffer_rgba()
-        img_arr = np.asarray(buf)
-        img_tk = ImageTk.PhotoImage(Image.fromarray(img_arr))
-
-        # update image to show animations
-        movieLabel.place(relx=0.08, rely=0.15)
+    finger_state_thread.join()  # wait for this thread
+    for i, im in enumerate(video_reader):
+        current_image = Image.fromarray(im)
+        img_tk = ImageTk.PhotoImage(image=current_image)
+        movieLabel.img_tk = img_tk
         movieLabel.config(image=img_tk)
+        movieLabel.place(relx=0.05, rely=0.2)
         movieLabel.update()
+
+        # update finger label
+        thumb_label.config(
+            text="thumb:" + finger_state_labeller(finger_state_thread.rtn[i][0])
+        )
+        index_label.config(
+            text="index:" + finger_state_labeller(finger_state_thread.rtn[i][1])
+        )
+        middle_label.config(
+            text="middle:" + finger_state_labeller(finger_state_thread.rtn[i][2])
+        )
+        ring_label.config(
+            text="ring:" + finger_state_labeller(finger_state_thread.rtn[i][3])
+        )
+        pinky_label.config(
+            text="pinky:" + finger_state_labeller(finger_state_thread.rtn[i][4])
+        )
 
 
 # the GUI main frame for visualization the hand model
@@ -196,8 +143,11 @@ root = Tk()
 varHead = StringVar()
 varHand = StringVar()
 root.title("Visualization Tool")
-root.geometry("800x500")
-movieLabel = Label(root, width=512, height=400)
+root.geometry("1024x768")
+movieLabel = Label(root, width=640, height=480)
+
+# TODO: Path detect .temp folder, create if not exist
+# TODO: Load gesture classifier & wrist movement classifier
 
 button_upload_txt = Button(root, text="Upload txt file", command=upload_txt)
 button_upload_txt.place(relx=0.05, rely=0.07)
@@ -212,7 +162,7 @@ varHand.set(hand_types[0])
 hand_type = OptionMenu(root, varHand, *hand_types)
 hand_type.place(relx=0.78, rely=0.1)
 
-button_show = Button(root, text="Visualize", command=run_input)
+button_show = Button(root, text="Analyse", command=run_input)
 button_show.place(relx=0.755, rely=0.155)
 
 select_label = Label(root, text="", font="Helvetica 10 bold")
