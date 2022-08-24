@@ -92,6 +92,8 @@ def clean_temp():
     temp_path = Path("../.temp")
     for file in temp_path.iterdir():
         file.unlink()
+    program_status.config(text="Temporary files are cleaned")
+    program_status.update()
 
 
 def upload_txt():
