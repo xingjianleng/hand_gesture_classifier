@@ -6,15 +6,21 @@ NOTE: Each frame has 25/26 3D coordinate points (extra one could be the head coo
 Rewritten by Xingjian Leng on 20, Jul, 2022
 Credit to:
 """
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_agg import FigureCanvasAgg
+import imageio
 import numpy as np
 from PIL import Image, ImageTk
+import torch
+import torch.nn.functional as F
 
-from utils import read_txt, hand_types
-from finger_classifier import finger_classifier_cos
-from palm_classifier import get_palm_vector, get_palm_center
+from custom_thread import CustomThread
+from data_animation import generate_animation
+from finger_classifier import finger_states_encoding
+from gesture_classifier import ConvolutionNetGesture, transformation_gesture
+from movement_classifier import ConvolutionNetMovement, transformation_movement
+from pathlib import Path
 import re
+from time import sleep
+from utils import read_txt, hand_types, extract_wrist_data, gestures, wrist_movements
 from tkinter import Tk, Button, Label, Entry, StringVar, OptionMenu, END, filedialog
 
 # the option for visualization data
@@ -31,6 +37,16 @@ red_pivots = (2, 5, 8, 11, 15)
 green_pivots = (3, 6, 9, 12, 16)
 # indices for blue coloring pivots (they are also fingertips indices)
 blue_pivots = (4, 7, 10, 13, 17)
+
+
+def finger_state_labeller(int_label: int) -> str:
+    assert int_label in {0, 1, 2}
+    if int_label == 0:
+        return "straight"
+    elif int_label == 1:
+        return "half-curved"
+    else:
+        return "curved"
 
 
 def indices_to_colour(index, offset):
@@ -64,6 +80,20 @@ def extract_points(frame, with_head=False):
     return x, y, z
 
 
+def prediction(net, data, transform=None):
+    if transform is not None:
+        transformed_data = transform(data)
+        data = torch.reshape(transformed_data, (1, *transformed_data.shape))
+    pred = net(data)
+    return pred
+
+
+def clean_temp():
+    temp_path = Path("../.temp")
+    for file in temp_path.iterdir():
+        file.unlink()
+
+
 def upload_txt():
     # event handler for upload txt file
     select_file = filedialog.askopenfilename()
@@ -79,117 +109,82 @@ def run_input():
     if txt_path.get() == "":
         select_label.config(text="Please select the txt file!")
         return
+    # show the program is analysing
+    program_status.config(text="Program is analysing (wait for around 5 seconds)")
+    program_status.update()
+
     with_head = varHead.get() == head_options[0]
-    head_offset = 1 if with_head else 0
     points_raw = read_txt(txt_path.get(), with_head)
     left_hand = varHand.get() == hand_types[0]
     hand = 0 if left_hand else 1
-
     points = np.array(points_raw)
     select_label.config(text="")
 
-    fingers = np.empty((0, 3))
-    for frame in points:
-        finger_frame = np.vstack(
-            (
-                frame[3 * head_offset : 3 * head_offset + 3].reshape(-1, 3),
-                frame[9 + 3 * head_offset :].reshape(-1, 3),
-            )
-        )
-        fingers = np.vstack((fingers, finger_frame))
-    coord_mean = np.mean(fingers, axis=0)
-    off_x = coord_mean[0]
-    off_y = coord_mean[1]
-    off_z = coord_mean[2]
+    # start a new thread for calculating labels and making predictions
+    finger_state_thread = CustomThread(finger_states_encoding, points)
+    finger_state_thread.start()
+    wrist_data = extract_wrist_data(points)
 
-    for frame_num, frame in enumerate(points):
-        # classify states for fingers
-        finger_predict = finger_classifier_cos(frame[9 + 3 * head_offset :])
-        thumb_label.config(text=f"Thumb: {finger_label[finger_predict[0]]}")
-        index_label.config(text=f"Index: {finger_label[finger_predict[1]]}")
-        middle_label.config(text=f"Middle: {finger_label[finger_predict[2]]}")
-        ring_label.config(text=f"Ring: {finger_label[finger_predict[3]]}")
-        pinky_label.config(text=f"Pinky: {finger_label[finger_predict[4]]}")
+    # movement prediction
+    wrist_movement_thread = CustomThread(
+        prediction, movement_classifier, wrist_data, transformation_movement
+    )
+    wrist_movement_thread.start()
 
-        plt.cla()
-        plt.close("all")
-        ax = plt.axes(projection="3d")
-        # set the dimension
-        ax.set_xlim3d(-0.25, 0.25)
-        ax.set_ylim3d(-0.25, 0.25)
-        ax.set_zlim3d(-0.25, 0.25)
+    # gesture movement prediction
+    finger_state_thread.join()  # wait for this thread
+    finger_states = finger_state_thread.rtn
+    gesture_state_thread = CustomThread(
+        prediction, gesture_classifier, finger_states, transformation_gesture
+    )
+    gesture_state_thread.start()
 
-        # extract data
-        x, y, z = extract_points(frame, with_head)
-        # length for each list should be the same
-        assert len(x) == len(y) == len(z)
+    filename = Path(txt_path.get()).stem
+    temp_video_path = Path(f"../.temp/temp_{filename}.mp4")
+    if not temp_video_path.exists():
+        # put animation on the main thread
+        animation = generate_animation(points, with_head, hand)
+        animation.save(temp_video_path)
+    video_reader = imageio.get_reader(temp_video_path)
 
-        # if head data is included, show it in the visualization
-        if with_head:
-            ax.scatter(
-                x[0] - off_x, y[0] - off_y, z[0] - off_z, c="black", marker="o", s=60
-            )
+    gesture_state_thread.join()  # wait for this thread
+    wrist_movement_thread.join()  # wait for this thread
 
-        # plot each pivot on axes
-        for i in range(head_offset, len(x)):
-            ax.scatter(
-                x[i] - off_x,
-                y[i] - off_y,
-                z[i] - off_z,
-                c=indices_to_colour(i, head_offset),
-                s=30,
-                alpha=0.6,
-            )
+    # update the gesture and movement prediction (use softmax)
+    wrist_move = torch.argmax(F.softmax(wrist_movement_thread.rtn, dim=1))
+    gesture_move = torch.argmax(F.softmax(gesture_state_thread.rtn, dim=1))
+    gesture_label.config(text="movement:" + gestures[gesture_move])
+    movement_label.config(text="gesture:" + wrist_movements[wrist_move])
 
-        # plot the skeleton of hands on axes (except from the root)
-        for i in range(head_offset + 1, len(x) - 1):
-            if i not in map(lambda p: p + head_offset, blue_pivots):
-                ax.plot(
-                    [x[i] - off_x, x[i + 1] - off_x],
-                    [y[i] - off_y, y[i + 1] - off_y],
-                    [z[i] - off_z, z[i + 1] - off_z],
-                    c="black",
-                )
+    # change the label that the analysis terminates
+    program_status.config(text="")
+    program_status.update()
 
-        root_coord = (
-            x[head_offset] - off_x,
-            y[head_offset] - off_y,
-            z[head_offset] - off_z,
-        )
-        # plot all the skeleton from the root (5 fingers)
-        for i in map(lambda p: p + head_offset, inner_pivots):
-            ax.plot(
-                [root_coord[0], x[i] - off_x],
-                [root_coord[1], y[i] - off_y],
-                [root_coord[2], z[i] - off_z],
-                c="black",
-            )
-
-        # plot the palm normal vector
-        palm_vector = get_palm_vector(frame, hand)
-        palm_center = get_palm_center(frame)
-        ax.quiver(
-            palm_center[0] - off_x,
-            palm_center[1] - off_y,
-            palm_center[2] - off_z,
-            palm_vector[0],
-            palm_vector[1],
-            palm_vector[2],
-            color="red",
-        )
-
-        # extract the image
-        img = plt.gcf()
-        canvas = FigureCanvasAgg(img)
-        canvas.draw()
-        buf = canvas.buffer_rgba()
-        img_arr = np.asarray(buf)
-        img_tk = ImageTk.PhotoImage(Image.fromarray(img_arr))
-
-        # update image to show animations
-        movieLabel.place(relx=0.08, rely=0.15)
+    for i, im in enumerate(video_reader):
+        current_image = Image.fromarray(im)
+        img_tk = ImageTk.PhotoImage(image=current_image)
+        movieLabel.img_tk = img_tk
         movieLabel.config(image=img_tk)
+        movieLabel.place(relx=0.05, rely=0.2)
         movieLabel.update()
+
+        # update finger label
+        thumb_label.config(
+            text="thumb:" + finger_state_labeller(finger_state_thread.rtn[i][0])
+        )
+        index_label.config(
+            text="index:" + finger_state_labeller(finger_state_thread.rtn[i][1])
+        )
+        middle_label.config(
+            text="middle:" + finger_state_labeller(finger_state_thread.rtn[i][2])
+        )
+        ring_label.config(
+            text="ring:" + finger_state_labeller(finger_state_thread.rtn[i][3])
+        )
+        pinky_label.config(
+            text="pinky:" + finger_state_labeller(finger_state_thread.rtn[i][4])
+        )
+        sleep(1 / 60)  # make sure video is played at 60fps
 
 
 # the GUI main frame for visualization the hand model
@@ -197,47 +192,66 @@ root = Tk()
 varHead = StringVar()
 varHand = StringVar()
 root.title("Visualization Tool")
-root.geometry("800x500")
-movieLabel = Label(root, width=512, height=400)
+root.geometry("1024x768")
+movieLabel = Label(root, width=640, height=480)
 
-button_upload_txt = Button(root, text="Upload txt file", command=upload_txt)
+# detect .temp folder, create if not exist
+Path("../.temp").mkdir(parents=True, exist_ok=True)
+
+# load gesture classifier & wrist movement classifier
+gesture_classifier = ConvolutionNetGesture()
+gesture_classifier.load_state_dict(torch.load("../models/conv_gesture.pt"))
+movement_classifier = ConvolutionNetMovement()
+movement_classifier.load_state_dict(torch.load("../models/conv_movement.pt"))
+
+button_upload_txt = Button(root, text="Choose txt file", command=upload_txt)
 button_upload_txt.place(relx=0.05, rely=0.07)
 txt_path = Entry(root)
 txt_path.place(relx=0.21, rely=0.07)
 
+button_clean_temp = Button(root, text="Clean temporary files", command=clean_temp)
+button_clean_temp.place(relx=0.755, rely=0.9)
+
+head_option_label = Label(root, text="With head data: ", font="Helvetica 12 bold")
+head_option_label.place(relx=0.66, rely=0.045)
 varHead.set(head_options[0])
 head_mode = OptionMenu(root, varHead, *head_options)
 head_mode.place(relx=0.755, rely=0.045)
 
+hand_type_label = Label(root, text="Hand type: ", font="Helvetica 12 bold")
+hand_type_label.place(relx=0.68, rely=0.1)
 varHand.set(hand_types[0])
 hand_type = OptionMenu(root, varHand, *hand_types)
-hand_type.place(relx=0.78, rely=0.1)
+hand_type.place(relx=0.755, rely=0.1)
 
-button_show = Button(root, text="Visualize", command=run_input)
-button_show.place(relx=0.755, rely=0.155)
+button_show = Button(root, text="Analyse", command=run_input)
+button_show.place(relx=0.75, rely=0.155)
 
-select_label = Label(root, text="", font="Helvetica 10 bold")
+select_label = Label(root, text="", font="Helvetica 12 bold")
 select_label.place(relx=0.58, rely=0.03)
 
+program_status = Label(root, text="", font="Helvetica 18 bold")
+program_status.place(relx=0.1, rely=0.9)
+
 # prediction at right side of the window
-hand_state_label = Label(root, text="Hand State", font="Helvetica 12 bold")
+hand_state_label = Label(root, text="Hand State", font="Helvetica 14 bold")
 hand_state_label.place(relx=0.75, rely=0.25)
-gesture_label = Label(root, text="gesture:", font="Helvetica 10 bold")
+gesture_label = Label(root, text="gesture:", font="Helvetica 12 bold")
 gesture_label.place(relx=0.75, rely=0.3)
-movement_label = Label(root, text="movement:", font="Helvetica 10 bold")
+movement_label = Label(root, text="movement:", font="Helvetica 12 bold")
 movement_label.place(relx=0.75, rely=0.35)
 
-finger_state_label = Label(root, text="Finger State", font="Helvetica 12 bold")
+finger_state_label = Label(root, text="Finger State", font="Helvetica 14 bold")
 finger_state_label.place(relx=0.75, rely=0.45)
-thumb_label = Label(root, text="thumb:", font="Helvetica 10 bold")
+thumb_label = Label(root, text="thumb:", font="Helvetica 12 bold")
 thumb_label.place(relx=0.75, rely=0.5)
-index_label = Label(root, text="index:", font="Helvetica 10 bold")
+index_label = Label(root, text="index:", font="Helvetica 12 bold")
 index_label.place(relx=0.75, rely=0.55)
-middle_label = Label(root, text="middle:", font="Helvetica 10 bold")
+middle_label = Label(root, text="middle:", font="Helvetica 12 bold")
 middle_label.place(relx=0.75, rely=0.6)
-ring_label = Label(root, text="ring:", font="Helvetica 10 bold")
+ring_label = Label(root, text="ring:", font="Helvetica 12 bold")
 ring_label.place(relx=0.75, rely=0.65)
-pinky_label = Label(root, text="pinky:", font="Helvetica 10 bold")
+pinky_label = Label(root, text="pinky:", font="Helvetica 12 bold")
 pinky_label.place(relx=0.75, rely=0.7)
 
 root.mainloop()
