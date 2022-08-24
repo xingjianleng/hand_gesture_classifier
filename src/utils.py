@@ -104,3 +104,14 @@ def read_csv(csv_data):
             else:
                 coordinates.append([float(x) for x in line])
     return np.array(coordinates), movements
+
+
+def extract_wrist_data(coordinates):
+    extracted_frame = coordinates[:, 3:6]  # rootPos
+    extracted_frame = np.hstack((extracted_frame, coordinates[:, 12:15]))  # Thumb 0
+    extracted_frame = np.hstack((extracted_frame, coordinates[:, 51:54]))  # Pinky 0
+    for index in (5, 8, 11, 14, 18):
+        extracted_frame = np.hstack(
+            (extracted_frame, coordinates[:, index : index + 3])
+        )
+    return extracted_frame

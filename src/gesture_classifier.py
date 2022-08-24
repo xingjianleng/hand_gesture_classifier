@@ -24,6 +24,8 @@ class GestureDataset(Dataset):
             extracted_data = finger_states_encoding(coordinates)
             self.coordinates.append(extracted_data)
             self.labels.append(movements[0])
+        self.coordinates = self.coordinates
+        self.labels = self.labels
         self.transform = transform
         self.target_transform = target_transform
 
@@ -67,20 +69,17 @@ class ConvolutionNetGesture(nn.Module):
         return self.fc2(x)
 
 
+transformation_gesture = transforms.Lambda(
+    lambda x: torch.reshape(torch.tensor(x, dtype=torch.float32), (1, *x.shape))
+)
+
+
 if __name__ == "__main__":
     mode = "CNN"
     assert mode in {"CNN", "FC"}
 
-    transformation = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.ConvertImageDtype(torch.float),
-            transforms.Normalize(0.5, 0.5),
-        ]
-    )
-
     val_loader = DataLoader(
-        GestureDataset("../validation_data", transform=transformation),
+        GestureDataset("../validation_data", transform=transformation_gesture),
         batch_size=64,
     )
 
@@ -95,13 +94,13 @@ if __name__ == "__main__":
     ):
         # when there is no existing model state saved, train a new model
         train_loader = DataLoader(
-            GestureDataset("../train_data", transform=transformation),
+            GestureDataset("../train_data", transform=transformation_gesture),
             batch_size=64,
             shuffle=True,
         )
 
         # training details
-        epochs = 15
+        epochs = 30
         lr = 1e-3
         betas = (0.9, 0.999)
         loss_func = nn.CrossEntropyLoss()

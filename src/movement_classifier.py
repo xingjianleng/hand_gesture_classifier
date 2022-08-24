@@ -12,7 +12,7 @@ from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 
 from copy import deepcopy
-from utils import read_csv
+from utils import read_csv, extract_wrist_data
 from pathlib import Path
 
 
@@ -22,20 +22,11 @@ class MovementDataset(Dataset):
         self.labels = []
         for csv_file in Path(file_path).iterdir():
             coordinates, movements = read_csv(csv_file)
-            # TODO: Improvement
-            extracted_frame = coordinates[:, 3:6]  # rootPos
-            extracted_frame = np.hstack(
-                (extracted_frame, coordinates[:, 12:15])
-            )  # Thumb 0
-            extracted_frame = np.hstack(
-                (extracted_frame, coordinates[:, 51:54])
-            )  # Pinky 0
-            for index in (5, 8, 11, 14, 18):
-                extracted_frame = np.hstack(
-                    (extracted_frame, coordinates[:, index : index + 3])
-                )
+            extracted_frame = extract_wrist_data(coordinates=coordinates)
             self.coordinates.append(extracted_frame)
             self.labels.append(movements[1])
+        self.coordinates = np.array(self.coordinates, dtype=np.float32)
+        self.labels = np.array(self.labels)
         self.transform = transform
         self.target_transform = target_transform
 
@@ -86,20 +77,25 @@ class ConvolutionNetMovement(nn.Module):
         return self.fc2(x)
 
 
+transformation_movement = transforms.Compose(
+    [
+        transforms.Lambda(
+            lambda x: torch.reshape(torch.tensor(x, dtype=torch.float32), (1, *x.shape))
+        ),
+        transforms.Lambda(
+            lambda x: (x - torch.mean(x, dim=1, keepdim=True))
+            / torch.std(x, dim=1, keepdim=True)
+        ),
+    ]
+)
+
+
 if __name__ == "__main__":
     mode = "CNN"
     assert mode in {"CNN", "FC"}
 
-    transformation = transforms.Compose(
-        [
-            transforms.ToTensor(),
-            transforms.ConvertImageDtype(torch.float),
-            transforms.Normalize(0.5, 0.5),
-        ]
-    )
-
     val_loader = DataLoader(
-        MovementDataset("../validation_data", transform=transformation),
+        MovementDataset("../validation_data", transform=transformation_movement),
         batch_size=64,
     )
 
@@ -114,7 +110,7 @@ if __name__ == "__main__":
     ):
         # when there is no existing model state saved, train a new model
         train_loader = DataLoader(
-            MovementDataset("../train_data", transform=transformation),
+            MovementDataset("../train_data", transform=transformation_movement),
             batch_size=64,
             shuffle=True,
         )
