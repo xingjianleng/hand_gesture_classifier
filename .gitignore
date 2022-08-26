@@ -5,6 +5,7 @@
 /models/
 /bin/
 **/__pycache__
+**/.temp
 
 # Developer
 .vscode/*

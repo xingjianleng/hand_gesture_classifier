@@ -18,6 +18,11 @@ from finger_classifier import finger_states_encoding
 from gesture_classifier import ConvolutionNetGesture, transformation_gesture
 from movement_classifier import ConvolutionNetMovement, transformation_movement
 from pathlib import Path
+from palm_classifier import (
+    forward_backward_classifier,
+    get_palm_vector,
+    get_head_vector,
+)
 import re
 from time import sleep
 from utils import read_txt, hand_types, extract_wrist_data, gestures, wrist_movements
@@ -122,6 +127,17 @@ def run_input():
     points = np.array(points_raw)
     select_label.config(text="")
 
+    # palm direction
+    if not with_head:
+        all_forwardness = ["N/A"] * points.shape[0]
+    else:
+        all_forwardness = []
+        for frame in points:
+            forwardness = forward_backward_classifier(
+                get_palm_vector(frame, with_head), get_head_vector(frame)
+            )
+            all_forwardness.append(forwardness.value)
+
     # start a new thread for calculating labels and making predictions
     finger_state_thread = CustomThread(finger_states_encoding, points)
     finger_state_thread.start()
@@ -155,8 +171,8 @@ def run_input():
     # update the gesture and movement prediction (use softmax)
     wrist_move = torch.argmax(F.softmax(wrist_movement_thread.rtn, dim=1))
     gesture_move = torch.argmax(F.softmax(gesture_state_thread.rtn, dim=1))
-    gesture_label.config(text="movement:" + gestures[gesture_move])
-    movement_label.config(text="gesture:" + wrist_movements[wrist_move])
+    gesture_label.config(text="movement: " + gestures[gesture_move])
+    movement_label.config(text="gesture: " + wrist_movements[wrist_move])
 
     # change the label that the analysis terminates
     program_status.config(text="")
@@ -172,20 +188,22 @@ def run_input():
 
         # update finger label
         thumb_label.config(
-            text="thumb:" + finger_state_labeller(finger_state_thread.rtn[i][0])
+            text="thumb: " + finger_state_labeller(finger_state_thread.rtn[i][0])
         )
         index_label.config(
-            text="index:" + finger_state_labeller(finger_state_thread.rtn[i][1])
+            text="index: " + finger_state_labeller(finger_state_thread.rtn[i][1])
         )
         middle_label.config(
-            text="middle:" + finger_state_labeller(finger_state_thread.rtn[i][2])
+            text="middle: " + finger_state_labeller(finger_state_thread.rtn[i][2])
         )
         ring_label.config(
-            text="ring:" + finger_state_labeller(finger_state_thread.rtn[i][3])
+            text="ring: " + finger_state_labeller(finger_state_thread.rtn[i][3])
         )
         pinky_label.config(
-            text="pinky:" + finger_state_labeller(finger_state_thread.rtn[i][4])
+            text="pinky: " + finger_state_labeller(finger_state_thread.rtn[i][4])
         )
+        # update forwardness label
+        forwardness_label.config(text="Forwardness: " + all_forwardness[i])
         sleep(1 / 60)  # make sure video is played at 60fps
 
 
@@ -242,6 +260,12 @@ gesture_label = Label(root, text="gesture:", font="Helvetica 12 bold")
 gesture_label.place(relx=0.75, rely=0.3)
 movement_label = Label(root, text="movement:", font="Helvetica 12 bold")
 movement_label.place(relx=0.75, rely=0.35)
+
+# palm direction prediction
+palm_state_label = Label(root, text="Palm direction", font="Helvetica 14 bold")
+palm_state_label.place(relx=0.75, rely=0.78)
+forwardness_label = Label(root, text="Forwardness:", font="Helvetica 12 bold")
+forwardness_label.place(relx=0.75, rely=0.82)
 
 finger_state_label = Label(root, text="Finger State", font="Helvetica 14 bold")
 finger_state_label.place(relx=0.75, rely=0.45)

@@ -9,11 +9,11 @@ from enum import Enum
 
 
 class Direction(Enum):
-    FORWARD = 1
-    PARTIAL_FORWARD = 2
-    BACKWARD = 3
-    PARTIAL_BACKWARD = 4
-    OTHERS = 5
+    FORWARD = "Forward"
+    PARTIAL_FORWARD = "Partial forward"
+    BACKWARD = "Backward"
+    PARTIAL_BACKWARD = "Partial backward"
+    OTHERS = "Others"
 
 
 def get_palm_vector(frame, hand_type, with_head: bool = True):
@@ -53,6 +53,13 @@ def get_ring_vec(frame, with_head: bool):
     ring_1 = frame[39 + offset : 42 + offset]
     root = frame[0 + offset : 3 + offset]
     return ring_1 - root
+
+
+def get_head_vector(frame):
+    # to call this function, the frame must contain head information
+    palm_center = get_palm_center(frame=frame, with_head=True)
+    head_pos = frame[0:3]
+    return palm_center - head_pos
 
 
 def forward_backward_classifier(palm_vector, head_vector):
