@@ -12,7 +12,6 @@ from PIL import Image, ImageTk
 import torch
 import torch.nn.functional as F
 
-from custom_thread import CustomThread
 from data_animation import generate_animation
 from finger_classifier import finger_states_encoding
 from gesture_classifier import ConvolutionNetGesture, transformation_gesture
@@ -139,23 +138,18 @@ def run_input():
             all_forwardness.append(forwardness.value)
 
     # start a new thread for calculating labels and making predictions
-    finger_state_thread = CustomThread(finger_states_encoding, points)
-    finger_state_thread.start()
+    finger_states = finger_states_encoding(points)
     wrist_data = extract_wrist_data(points)
 
     # movement prediction
-    wrist_movement_thread = CustomThread(
-        prediction, movement_classifier, wrist_data, transformation_movement
+    wrist_movement_pred = prediction(
+        movement_classifier, wrist_data, transformation_movement
     )
-    wrist_movement_thread.start()
 
     # gesture movement prediction
-    finger_state_thread.join()  # wait for this thread
-    finger_states = finger_state_thread.rtn
-    gesture_state_thread = CustomThread(
-        prediction, gesture_classifier, finger_states, transformation_gesture
+    gesture_states_pred = prediction(
+        gesture_classifier, finger_states, transformation_gesture
     )
-    gesture_state_thread.start()
 
     filename = Path(txt_path.get()).stem
     temp_video_path = Path(f"../.temp/temp_{filename}.mp4")
@@ -163,16 +157,14 @@ def run_input():
         # put animation on the main thread
         animation = generate_animation(points, with_head, hand)
         animation.save(temp_video_path)
+        print("Video file created")
     video_reader = imageio.get_reader(temp_video_path)
 
-    gesture_state_thread.join()  # wait for this thread
-    wrist_movement_thread.join()  # wait for this thread
-
     # update the gesture and movement prediction (use softmax)
-    wrist_move = torch.argmax(F.softmax(wrist_movement_thread.rtn, dim=1))
-    gesture_move = torch.argmax(F.softmax(gesture_state_thread.rtn, dim=1))
-    gesture_label.config(text="movement: " + gestures[gesture_move])
-    movement_label.config(text="gesture: " + wrist_movements[wrist_move])
+    wrist_move = torch.argmax(F.softmax(wrist_movement_pred, dim=1))
+    gesture_move = torch.argmax(F.softmax(gesture_states_pred, dim=1))
+    gesture_label.config(text="gesture: " + gestures[gesture_move])
+    movement_label.config(text="movement: " + wrist_movements[wrist_move])
 
     # change the label that the analysis terminates
     program_status.config(text="")
@@ -187,21 +179,13 @@ def run_input():
         movieLabel.update()
 
         # update finger label
-        thumb_label.config(
-            text="thumb: " + finger_state_labeller(finger_state_thread.rtn[i][0])
-        )
-        index_label.config(
-            text="index: " + finger_state_labeller(finger_state_thread.rtn[i][1])
-        )
+        thumb_label.config(text="thumb: " + finger_state_labeller(finger_states[i][0]))
+        index_label.config(text="index: " + finger_state_labeller(finger_states[i][1]))
         middle_label.config(
-            text="middle: " + finger_state_labeller(finger_state_thread.rtn[i][2])
+            text="middle: " + finger_state_labeller(finger_states[i][2])
         )
-        ring_label.config(
-            text="ring: " + finger_state_labeller(finger_state_thread.rtn[i][3])
-        )
-        pinky_label.config(
-            text="pinky: " + finger_state_labeller(finger_state_thread.rtn[i][4])
-        )
+        ring_label.config(text="ring: " + finger_state_labeller(finger_states[i][3]))
+        pinky_label.config(text="pinky: " + finger_state_labeller(finger_states[i][4]))
         # update forwardness label
         forwardness_label.config(text="Forwardness: " + all_forwardness[i])
         sleep(1 / 60)  # make sure video is played at 60fps
