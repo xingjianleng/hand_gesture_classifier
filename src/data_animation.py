@@ -1,8 +1,13 @@
+import matplotlib
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import animation
 import mpl_toolkits.mplot3d.axes3d as p3
 from palm_classifier import get_palm_center, get_palm_vector
+
+
+# define the backend for matplotlib
+matplotlib.use("Agg")
 
 # colors
 colors = ("yellow", "purple", "red", "green", "blue")

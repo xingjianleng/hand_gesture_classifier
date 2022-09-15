@@ -157,7 +157,6 @@ def run_input():
         # put animation on the main thread
         animation = generate_animation(points, with_head, hand)
         animation.save(temp_video_path)
-        print("Video file created")
     video_reader = imageio.get_reader(temp_video_path)
 
     # update the gesture and movement prediction (use softmax)
