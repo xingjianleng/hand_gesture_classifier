@@ -12,6 +12,7 @@ from PIL import Image, ImageTk
 import torch
 import torch.nn.functional as F
 
+import json
 from data_animation import generate_animation
 from finger_classifier import finger_states_encoding
 from gesture_classifier import ConvolutionNetGesture, transformation_gesture
@@ -100,6 +101,14 @@ def clean_temp():
     program_status.update()
 
 
+def clean_output():
+    output_path = Path("../output")
+    for file in output_path.iterdir():
+        file.unlink()
+    program_status.config(text="Output files are cleaned")
+    program_status.update()
+
+
 def upload_txt():
     # event handler for upload txt file
     select_file = filedialog.askopenfilename()
@@ -116,7 +125,7 @@ def run_input():
         select_label.config(text="Please select the txt file!")
         return
     # show the program is analysing
-    program_status.config(text="Program is analysing (wait for around 5 seconds)")
+    program_status.config(text="Program is analysing (wait for around 15 seconds)")
     program_status.update()
 
     with_head = varHead.get() == head_options[0]
@@ -137,7 +146,7 @@ def run_input():
             )
             all_forwardness.append(forwardness.value)
 
-    # start a new thread for calculating labels and making predictions
+    # calculating labels and making predictions
     finger_states = finger_states_encoding(points)
     wrist_data = extract_wrist_data(points)
 
@@ -154,16 +163,30 @@ def run_input():
     filename = Path(txt_path.get()).stem
     temp_video_path = Path(f"../.temp/temp_{filename}.mp4")
     if not temp_video_path.exists():
-        # put animation on the main thread
         animation = generate_animation(points, with_head, hand)
         animation.save(temp_video_path)
     video_reader = imageio.get_reader(temp_video_path)
 
     # update the gesture and movement prediction (use softmax)
-    wrist_move = torch.argmax(F.softmax(wrist_movement_pred, dim=1))
-    gesture_move = torch.argmax(F.softmax(gesture_states_pred, dim=1))
-    gesture_label.config(text="gesture: " + gestures[gesture_move])
-    movement_label.config(text="movement: " + wrist_movements[wrist_move])
+    movement_pred = torch.argmax(F.softmax(wrist_movement_pred, dim=1))
+    gesture_pred = torch.argmax(F.softmax(gesture_states_pred, dim=1))
+    gesture_label.config(text="gesture: " + gestures[gesture_pred])
+    movement_label.config(text="movement: " + wrist_movements[movement_pred])
+
+    # store the features to the output folder
+    output_feature_path = Path(f"../output/{filename}.json")
+    if not output_feature_path.exists():
+        with open(output_feature_path, "w") as f:
+            json.dump({
+                "finger_states": finger_states.tolist(),
+                "wrist_data": wrist_data.tolist(),
+                "forwardness": all_forwardness,
+                "gesture": gesture_pred.tolist(),
+                "wrist_movement": movement_pred.tolist(),
+                },
+                fp=f,
+                indent=4,
+            )
 
     # change the label that the analysis terminates
     program_status.config(text="")
@@ -198,8 +221,9 @@ root.title("Visualization Tool")
 root.geometry("1024x768")
 movieLabel = Label(root, width=640, height=480)
 
-# detect .temp folder, create if not exist
+# detect .temp and output folder, create if not exist
 Path("../.temp").mkdir(parents=True, exist_ok=True)
+Path("../output").mkdir(parents=True, exist_ok=True)
 
 # load gesture classifier & wrist movement classifier
 gesture_classifier = ConvolutionNetGesture()
@@ -213,7 +237,10 @@ txt_path = Entry(root)
 txt_path.place(relx=0.21, rely=0.07)
 
 button_clean_temp = Button(root, text="Clean temporary files", command=clean_temp)
-button_clean_temp.place(relx=0.755, rely=0.9)
+button_clean_temp.place(relx=0.74, rely=0.88)
+
+button_clean_output = Button(root, text="Clean output files", command=clean_output)
+button_clean_output.place(relx=0.74, rely=0.92)
 
 head_option_label = Label(root, text="With head data: ", font="Helvetica 12 bold")
 head_option_label.place(relx=0.66, rely=0.045)

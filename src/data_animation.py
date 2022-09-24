@@ -5,7 +5,6 @@ from matplotlib import animation
 import mpl_toolkits.mplot3d.axes3d as p3
 from palm_classifier import get_palm_center, get_palm_vector
 
-
 # define the backend for matplotlib
 matplotlib.use("Agg")
 
@@ -55,16 +54,16 @@ def extract_points(frame, with_head=False):
 
 
 def update_animation(
-    frame_num: int,
-    points: np.ndarray,
-    with_head: bool,
-    hand: int,
-    off_x: float,
-    off_y: float,
-    off_z: float,
-    scatters,
-    lines,
-    quiver,
+        frame_num: int,
+        points: np.ndarray,
+        with_head: bool,
+        hand: int,
+        off_x: float,
+        off_y: float,
+        off_z: float,
+        scatters,
+        lines,
+        quiver,
 ):
     frame = points[frame_num]
     head_offset = int(with_head)
@@ -77,7 +76,7 @@ def update_animation(
 
     for i in range(head_offset, len(x)):
         scatters[i].set_offsets(np.array([x[i] - off_x, y[i] - off_y]))
-        scatters[i].set_3d_properties(z[i : i + 1] - off_z, "z")
+        scatters[i].set_3d_properties(z[i: i + 1] - off_z, "z")
 
     # hand skeletons
     counter = 0
@@ -127,8 +126,8 @@ def generate_animation(points: np.ndarray, with_head: bool, hand: int):
     for frame in points:
         finger_frame = np.vstack(
             (
-                frame[3 * head_offset : 3 * head_offset + 3].reshape(-1, 3),
-                frame[9 + 3 * head_offset :].reshape(-1, 3),
+                frame[3 * head_offset: 3 * head_offset + 3].reshape(-1, 3),
+                frame[9 + 3 * head_offset:].reshape(-1, 3),
             )
         )
         fingers = np.vstack((fingers, finger_frame))

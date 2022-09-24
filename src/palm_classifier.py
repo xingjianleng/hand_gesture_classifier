@@ -34,24 +34,24 @@ def get_palm_vector(frame, hand_type, with_head: bool = True):
 def get_palm_center(frame, with_head: bool = True):
     # palm center is half of the length from root to the middle_finger_1
     offset = int(with_head) * 3
-    root = frame[0 + offset : 3 + offset]
-    middle_1 = frame[30 + offset : 33 + offset]
+    root = frame[0 + offset: 3 + offset]
+    middle_1 = frame[30 + offset: 33 + offset]
     return (middle_1 + root) / 2
 
 
 def get_index_vec(frame, with_head: bool):
     # index vector is the vector point from root to index_finger_1
     offset = int(with_head) * 3
-    index_1 = frame[21 + offset : 24 + offset]
-    root = frame[0 + offset : 3 + offset]
+    index_1 = frame[21 + offset: 24 + offset]
+    root = frame[0 + offset: 3 + offset]
     return index_1 - root
 
 
 def get_ring_vec(frame, with_head: bool):
     # ring vector is the vector point from root to ring_finger_1
     offset = int(with_head) * 3
-    ring_1 = frame[39 + offset : 42 + offset]
-    root = frame[0 + offset : 3 + offset]
+    ring_1 = frame[39 + offset: 42 + offset]
+    root = frame[0 + offset: 3 + offset]
     return ring_1 - root
 
 
@@ -66,7 +66,7 @@ def forward_backward_classifier(palm_vector, head_vector):
     # cosine similarity between two vectors
     # 1 -> forward, 0 -> backward, -1 -> other cases
     cosine_sim = np.dot(palm_vector, head_vector) / (
-        np.linalg.norm(palm_vector) * np.linalg.norm(head_vector)
+            np.linalg.norm(palm_vector) * np.linalg.norm(head_vector)
     )
     if cosine_sim > np.sqrt(3) / 2:
         # within 30 degree range, forward case

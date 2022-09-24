@@ -3,8 +3,6 @@ calculate finger state (straight, half-curved, fully curved)
 Rewritten by Xingjian Leng on 21, Jul, 2022
 Credit to:
 """
-from typing import List
-
 import numpy as np
 
 
@@ -43,18 +41,18 @@ def finger_classifier_cos(finger_coords):
         offset = (12 if i < 3 else 15) + i * 9
         tip_offset = 54 + i * 3
         finger_seg1 = (
-            finger_coords[offset : offset + 3] - finger_coords[offset + 3 : offset + 6]
+                finger_coords[offset: offset + 3] - finger_coords[offset + 3: offset + 6]
         )
         finger_seg2 = (
-            finger_coords[offset + 6 : offset + 9]
-            - finger_coords[tip_offset : tip_offset + 3]
+                finger_coords[offset + 6: offset + 9]
+                - finger_coords[tip_offset: tip_offset + 3]
         )
         rtn.append(cos_similarity(finger_seg1, finger_seg2, False))
     return rtn
 
 
-def finger_states_encoding(coordinates, with_head=True) -> List[List[int]]:
+def finger_states_encoding(coordinates, with_head=True) -> np.ndarray:
     rtn = np.zeros((359, 5), dtype=int)
     for i, frame in enumerate(coordinates):
-        rtn[i] = finger_classifier_cos(frame[9 + 3 * with_head :])
+        rtn[i] = finger_classifier_cos(frame[9 + 3 * with_head:])
     return rtn
