@@ -134,3 +134,7 @@ dmypy.json
 # developer
 **/.idea
 **/.vscode
+
+# project specific folders
+**/.temp
+**/output
