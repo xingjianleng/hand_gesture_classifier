@@ -2,7 +2,6 @@
 /labelled_data/
 /train_data/
 /validation_data/
-/models/
 /bin/
 **/__pycache__
 **/.temp
