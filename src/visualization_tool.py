@@ -179,7 +179,6 @@ def run_input():
         with open(output_feature_path, "w") as f:
             json.dump({
                 "finger_states": finger_states.tolist(),
-                "wrist_data": wrist_data.tolist(),
                 "forwardness": all_forwardness,
                 "gesture": gesture_pred.tolist(),
                 "wrist_movement": movement_pred.tolist(),
