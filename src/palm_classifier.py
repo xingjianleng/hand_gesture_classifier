@@ -68,16 +68,16 @@ def forward_backward_classifier(palm_vector, head_vector):
     cosine_sim = np.dot(palm_vector, head_vector) / (
             np.linalg.norm(palm_vector) * np.linalg.norm(head_vector)
     )
-    if cosine_sim > np.sqrt(3) / 2:
+    if cosine_sim >= np.sqrt(3) / 2:
         # within 30 degree range, forward case
         return Direction.FORWARD
-    elif cosine_sim < -np.sqrt(3) / 2:
+    elif cosine_sim <= -np.sqrt(3) / 2:
         # backward case
         return Direction.BACKWARD
-    elif cosine_sim > np.sqrt(3) / 2:
+    elif cosine_sim >= 1 / 2:
         # within 60 degree range, partial forward
         return Direction.PARTIAL_FORWARD
-    elif cosine_sim < -np.sqrt(3) / 2:
+    elif cosine_sim <= -1 / 2:
         # within 150 degree range, partial backward
         return Direction.PARTIAL_BACKWARD
     else:
